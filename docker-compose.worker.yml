@@ -1,0 +1,26 @@
+services:
+  render-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    image: plandome/render-worker:latest
+    restart: unless-stopped
+    env_file:
+      - apps/web/.env.local
+    environment:
+      NODE_ENV: production
+      RENDER_WORKERS: "2"
+    volumes:
+      - render_data:/app/.data
+      - render_cache:/home/worker/.cache
+    shm_size: 2gb
+    healthcheck:
+      test: ["CMD-SHELL", "pgrep -f 'scripts/render-daemon.ts' >/dev/null"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  render_data:
+  render_cache:

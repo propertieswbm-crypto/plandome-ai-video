@@ -1,0 +1,8 @@
+.data
+apps/web/.env.local
+apps/web/.next
+node_modules
+outputs
+tools
+work
+apps/web/public/references

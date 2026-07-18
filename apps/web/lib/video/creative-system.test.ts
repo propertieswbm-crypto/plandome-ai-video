@@ -1,0 +1,8 @@
+import { describe,expect,it } from "vitest";
+import { createVariationIdentity,fontPairs,palettes,selectCreative,templates,type GenerationHistory } from "./creative-system";
+
+describe("creative variation",()=>{
+ it("provides twelve real templates, sixteen palettes and twelve font pairs",()=>{expect(new Set(templates.map(x=>x.layoutFamily)).size).toBeGreaterThanOrEqual(12);expect(palettes).toHaveLength(16);expect(fontPairs).toHaveLength(12);});
+ it("generates cryptographically shaped identities",()=>{const value=createVariationIdentity();expect(value.generationId).toMatch(/^[a-f0-9-]{36}$/);expect(value.variationSeed).toMatch(/^[a-f0-9]{32}$/);});
+ it("varies the same project across five generations",()=>{const history:GenerationHistory[]=[];const results=[];for(let index=0;index<5;index++){const identity=createVariationIdentity("project");const selected=selectCreative(identity,history,6);results.push(selected);history.unshift({generationId:identity.generationId,projectId:"project",variationSeed:identity.variationSeed,templateId:selected.template.id,layoutFamily:selected.template.layoutFamily,paletteId:selected.palette.id,fontPairId:selected.fontPair.id,assetIds:[`asset-${index}`],sceneFingerprints:[`scene-${index}`],creativeFingerprint:selected.creativeFingerprint,createdAt:new Date(2026,0,index+1).toISOString()});} expect(new Set(results.map(x=>x.template.id)).size).toBeGreaterThanOrEqual(4);expect(new Set(results.map(x=>x.palette.id)).size).toBeGreaterThanOrEqual(4);expect(new Set(results.map(x=>x.fontPair.id)).size).toBeGreaterThanOrEqual(4);expect(new Set(results.map(x=>x.creativeFingerprint)).size).toBe(5);});
+});

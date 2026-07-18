@@ -1,0 +1,9 @@
+.git
+.next
+.npm-cache
+.data
+node_modules
+outputs
+tools
+**/.env*
+!apps/web/.env.example
