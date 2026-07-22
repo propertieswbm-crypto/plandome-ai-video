@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Download, Film, LoaderCircle, Sparkles } from "lucide-react";
+import { Check, Download, LoaderCircle, MonitorPlay, Sparkles, UserRound, WandSparkles } from "lucide-react";
 import type { VideoJob } from "@/lib/video/types";
 
 const terminal = new Set(["completed", "failed"]);
@@ -50,24 +50,24 @@ export function NarrationStudio() {
   return (
     <section className="studio-grid video-studio-grid">
       <div className="studio-panel">
-        <div className="studio-panel-heading"><div><p className="kicker">Full ad pipeline</p><h2>Paste one script. Generate the video.</h2></div><span className="character-count">{script.length}/3,000</span></div>
-        <textarea className="script-input video-script-input" value={script} onChange={(event) => setScript(event.target.value)} maxLength={3000} placeholder="Paste your UK property or planning advert script here…" aria-label="Video script" />
-        <div className="pipeline-summary">{useAvatar && <span>Standing Ella hook</span>}<span>ElevenLabs voice</span><span>Line-matched visuals</span><span>Animated captions</span></div>
-        <label className="avatar-toggle"><input type="checkbox" checked={useAvatar} onChange={(event) => setUseAvatar(event.target.checked)} disabled={busy} /><span><strong>Use Ella presenter</strong><small>{useAvatar ? "HeyGen creates a standing presenter for the opening hook." : "Faster mode: skip HeyGen and create the full advert in HyperFrames."}</small></span></label>
+        <div className="studio-panel-heading"><div><p className="kicker">Creative brief</p><h2>Start with your script</h2><p className="panel-description">The script controls every scene, visual and caption.</p></div><span className="character-count">{script.length.toLocaleString()} / 3,000</span></div>
+        <div className="script-field"><textarea className="script-input video-script-input" value={script} onChange={(event) => setScript(event.target.value)} maxLength={3000} placeholder="Paste your UK property or planning advert script here…" aria-label="Video script" /><div className="script-hint"><WandSparkles size={14} /> Sentences are automatically matched to distinct UK visuals.</div></div>
+        <div className="pipeline-summary">{useAvatar && <span><Check size={12} /> Ella hook</span>}<span><Check size={12} /> ElevenLabs voice</span><span><Check size={12} /> Scene-matched visuals</span><span><Check size={12} /> Animated captions</span></div>
+        <label className={`avatar-toggle ${useAvatar ? "avatar-toggle-active" : ""}`}><input type="checkbox" checked={useAvatar} onChange={(event) => setUseAvatar(event.target.checked)} disabled={busy} /><span className="option-icon"><UserRound size={18} /></span><span><strong>Use Ella presenter</strong><small>{useAvatar ? "Ella presents the opening hook, then the advert moves into matched visuals." : "Faster creative: the full advert is produced without a presenter."}</small></span><span className="toggle-switch" aria-hidden="true" /></label>
         <div className="studio-controls">
-          <label>Format<select value="portrait" disabled><option>9:16 portrait ad</option></select></label>
+          <label>Output format<select value="portrait" disabled><option>9:16 · Social portrait</option></select></label>
           <label>Render quality<select value={quality} onChange={(event) => setQuality(event.target.value as "preview" | "production")} disabled={busy}><option value="preview">Fast preview</option><option value="production">Production quality</option></select></label>
         </div>
         {error && <div className="form-message form-error" role="alert">{error}</div>}
         {job?.error && <div className="form-message form-error" role="alert">{job.error.message}</div>}
         <button className="button button-primary button-full button-large" type="button" onClick={generate} disabled={busy || script.trim().length < 20}>
-          {busy ? <><LoaderCircle className="spin" size={18} /> {job?.stage}</> : <><Sparkles size={18} /> Generate complete AI video</>}
+          {busy ? <><LoaderCircle className="spin" size={18} /> {job?.stage}</> : <><Sparkles size={18} /> Generate complete video</>}
         </button>
         {job && <div className="job-progress" aria-live="polite"><div><span>{job.stage}</span><strong>{job.progress}%</strong></div><progress max="100" value={job.progress} /></div>}
       </div>
       <aside className="studio-panel preview-panel video-preview-panel">
-        <p className="kicker">Rendered output</p><h2>Plandome vertical advert</h2>
-        {job?.status === "completed" && job.outputUrl ? <div className="video-result"><video controls playsInline src={job.outputUrl} /><a className="button button-secondary button-full" href={job.outputUrl} download><Download size={17} /> Download MP4</a>{job.canvaUrl && <a className="button button-secondary button-full" href={job.canvaUrl} download><Download size={17} /> Download static Canva storyboard</a>}</div> : <div className="audio-empty video-empty"><Film size={34} /><p>The final Ella advert will play here when narration, visuals, typography and rendering are complete.</p></div>}
+        <div className="preview-heading"><div><p className="kicker">Live output</p><h2>Your finished advert</h2></div><span className="format-pill">9:16</span></div>
+        {job?.status === "completed" && job.outputUrl ? <div className="video-result"><video controls playsInline src={job.outputUrl} /><a className="button button-primary button-full" href={job.outputUrl} download><Download size={17} /> Download MP4</a>{job.canvaUrl && <a className="button button-secondary button-full" href={job.canvaUrl} download><Download size={17} /> Download Canva storyboard</a>}</div> : <div className="audio-empty video-empty"><div className="preview-device"><MonitorPlay size={30} /><span>1080 × 1920</span></div><h3>Your video appears here</h3><p>Generate a script-led advert, then review and download the finished MP4 from this panel.</p><div className="preview-steps"><span>01 · Analyse</span><span>02 · Produce</span><span>03 · Render</span></div></div>}
       </aside>
     </section>
   );
