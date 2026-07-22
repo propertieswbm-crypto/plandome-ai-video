@@ -6,7 +6,7 @@ ENV NODE_ENV=production \
     RENDER_WORKERS=2
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates ffmpeg dumb-init fontconfig fonts-liberation procps \
+    ca-certificates ffmpeg dumb-init fontconfig fonts-liberation procps unzip \
     libasound2 libatk-bridge2.0-0 libatk1.0-0 libcups2 libdbus-1-3 \
     libdrm2 libgbm1 libgtk-3-0 libnss3 libx11-xcb1 libxcomposite1 \
     libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 xdg-utils \
@@ -23,6 +23,8 @@ COPY --chown=worker:worker packages/observability/package.json packages/observab
 RUN pnpm install --frozen-lockfile
 
 COPY --chown=worker:worker . .
+RUN mkdir -p /home/worker/.cache /app/.data \
+    && chown -R worker:worker /home/worker/.cache /app/.data
 USER worker
 RUN node node_modules/hyperframes/dist/cli.js browser ensure
 
