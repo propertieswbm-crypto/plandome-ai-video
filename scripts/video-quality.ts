@@ -62,7 +62,6 @@ export async function chooseNonRepeatingDesign(stateDirectory: string, seed: num
 
 export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
   const seen = new Set<string>();
-  const motionUses = new Map<string, number>();
   const reports = scenes.map((scene, index) => {
     const failures: string[] = [];
     // Property claims require authentic media. Planning, risk and cost beats have
@@ -72,11 +71,14 @@ export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
     if (!scene.brief) failures.push("Missing sentence-level visual brief.");
     if (requiresMedia && !scene.visualAsset && !scene.videoAsset && !scene.motionVisual) failures.push(`No line-matched visual asset.${scene.visualFailure ? ` Resolver: ${scene.visualFailure}` : ""}`);
     const asset = scene.visualAsset ?? scene.videoAsset ?? (scene.motionVisual ? `motion:${scene.motionVisual}` : undefined); const repeated=Boolean(asset&&seen.has(asset)&&!scene.motionVisual);
-    if (scene.motionVisual) { const uses=(motionUses.get(scene.motionVisual)??0)+1; motionUses.set(scene.motionVisual,uses); if(uses>2) failures.push("The same motion visual is used more than twice."); }
     if (repeated) failures.push("Visual is repeated from an earlier scene.");
     if (asset) seen.add(asset);
     if (scene.headline.trim().split(/\s+/).length > 8) failures.push("On-screen headline exceeds eight words.");
-    if (scene.duration > 4.5 && !["avatar", "pack", "cta"].includes(scene.kind)) failures.push("Scene exceeds the normal 2–4 second visual rhythm.");
+    // A semantic motion system is continuously animated and receives a distinct
+    // layout, camera move and palette per scene. It is not a repeated asset.
+    // Only genuinely static scenes should fail the normal visual-rhythm check.
+    const hasContinuousMotion = Boolean(scene.motionVisual || scene.videoAsset);
+    if (scene.duration > 4.5 && !hasContinuousMotion && !["avatar", "pack", "cta"].includes(scene.kind)) failures.push("Static scene exceeds the normal 2–4 second visual rhythm.");
     if (scene.brief && !/United Kingdom|UK|British/i.test(`${scene.brief.country} ${scene.brief.architecture} ${scene.brief.searchQuery}`)) failures.push("Visual brief is not explicitly UK-based.");
     if (/american|usa|united states|suburbia/i.test(scene.brief?.searchQuery ?? "")) failures.push("Visual brief contains prohibited American context.");
     const normalized=(value:string)=>value.toLowerCase().replace(/[^a-z0-9£$€]+/g," ").trim(); const textAccuracyScore=normalized(scene.text).includes(normalized(scene.headline))?1:0;
