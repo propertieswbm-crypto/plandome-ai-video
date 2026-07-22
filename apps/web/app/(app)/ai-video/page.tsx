@@ -6,7 +6,14 @@ export const metadata: Metadata = { title: "AI Video Generator" };
 export default function AiVideoPage() {
   return (
     <>
-      <header className="app-header"><div><h1>AI Video Generator</h1><p className="workspace-label">Script to a finished Plandome advert—with Ella, UK visuals, voiceover and motion.</p></div></header>
+      <header className="generator-header">
+        <div>
+          <div className="generator-status"><span /> Production studio online</div>
+          <h1>Create a publish-ready video</h1>
+          <p>Turn one script into a complete Plandome advert with matched UK visuals, narration, captions and motion.</p>
+        </div>
+        <div className="generator-runtime"><span>Cloud rendering</span><strong>24/7</strong></div>
+      </header>
       <NarrationStudio />
     </>
   );
