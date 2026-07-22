@@ -23,6 +23,7 @@ COPY --chown=worker:worker packages/observability/package.json packages/observab
 RUN pnpm install --frozen-lockfile
 
 COPY --chown=worker:worker . .
+RUN mkdir -p scripts/vendor && node -e "const fs=require('fs');(async()=>{for(const u of ['https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js','https://unpkg.com/gsap@3.14.2/dist/gsap.min.js']){try{const r=await fetch(u);if(!r.ok)continue;const b=Buffer.from(await r.arrayBuffer());if(b.length<50000)continue;fs.writeFileSync('scripts/vendor/gsap.min.js',b);return} catch{}}throw new Error('Unable to vendor GSAP')})()"
 RUN mkdir -p /home/worker/.cache /app/.data \
     && chown -R worker:worker /home/worker/.cache /app/.data
 USER worker
