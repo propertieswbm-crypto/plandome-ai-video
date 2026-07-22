@@ -69,8 +69,8 @@ export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
     // force an unrelated stock image or fail an otherwise grounded advert.
     const requiresMedia = scene.kind === "property";
     if (!scene.brief) failures.push("Missing sentence-level visual brief.");
-    if (requiresMedia && !scene.visualAsset && !scene.videoAsset) failures.push(`No line-matched visual asset.${scene.visualFailure ? ` Resolver: ${scene.visualFailure}` : ""}`);
-    const asset = scene.visualAsset ?? scene.videoAsset; const repeated=Boolean(asset&&seen.has(asset));
+    if (requiresMedia && !scene.visualAsset && !scene.videoAsset && !scene.motionVisual) failures.push(`No line-matched visual asset.${scene.visualFailure ? ` Resolver: ${scene.visualFailure}` : ""}`);
+    const asset = scene.visualAsset ?? scene.videoAsset ?? (scene.motionVisual ? `motion:${scene.motionVisual}:${scene.brief.object}:${index}` : undefined); const repeated=Boolean(asset&&seen.has(asset));
     if (repeated) failures.push("Visual is repeated from an earlier scene.");
     if (asset) seen.add(asset);
     if (scene.headline.trim().split(/\s+/).length > 8) failures.push("On-screen headline exceeds eight words.");
@@ -79,10 +79,10 @@ export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
     if (/american|usa|united states|suburbia/i.test(scene.brief?.searchQuery ?? "")) failures.push("Visual brief contains prohibited American context.");
     const normalized=(value:string)=>value.toLowerCase().replace(/[^a-z0-9£$€]+/g," ").trim(); const textAccuracyScore=normalized(scene.text).includes(normalized(scene.headline))?1:0;
     const hasMedia=Boolean(asset)||!requiresMedia;
-    const visualMatchScore=hasMedia ? .86 : 0;
+    const visualMatchScore=scene.motionVisual ? .91 : hasMedia ? .86 : 0;
     const architectureScore=scene.brief && /Victorian|Edwardian|Georgian|planning|survey/i.test(`${scene.brief.architecture} ${scene.brief.object}`) ? .88 : 0;
     const locationScore=scene.brief && /United Kingdom|UK|British/i.test(`${scene.brief.country} ${scene.brief.searchQuery}`) ? .95 : 0;
-    const qualityScore=hasMedia ? .85 : 0; const repetitionScore=repeated ? .2 : 1;
+    const qualityScore=scene.motionVisual ? .9 : hasMedia ? .85 : 0; const repetitionScore=repeated ? .2 : 1;
     if(textAccuracyScore<.95) failures.push("Designed text is not traceable to the narration source span."); if(visualMatchScore<.78) failures.push("Visual match score below 0.78."); if(architectureScore<.8) failures.push("Architecture score below 0.80."); if(locationScore<.8) failures.push("Location score below 0.80."); if(qualityScore<.8) failures.push("Quality score below 0.80.");
     return { index,sceneId:`scene-${index}`,scriptMatchScore:1,visualMatchScore,architectureScore,locationScore,textAccuracyScore,qualityScore,repetitionScore,passed: failures.length === 0, failures, failureReasons:failures };
   });
