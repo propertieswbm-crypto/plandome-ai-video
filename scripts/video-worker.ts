@@ -10,6 +10,7 @@ import { resolveGalleryAsset } from "./visual-gallery";
 import type { ScoredGalleryAsset } from "./visual-gallery";
 import { selectCreative } from "../apps/web/lib/video/creative-system";
 import { readGenerationHistory, saveGenerationHistory } from "./generation-history";
+import { splitScript } from "./script-scenes";
 
 const exec = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "..");
@@ -21,18 +22,7 @@ function loadEnv() {
 }
 
 async function update(job: VideoJob, status: VideoJob["status"], progress: number, stage: string) { Object.assign(job, { status, progress, stage }); await saveVideoJob(job); }
-function splitScript(script: string) {
-  const clauses = script.match(/[^.!?;,]+[.!?;,]?/g)?.map((part) => part.trim()).filter(Boolean) ?? [script];
-  const beats = clauses.flatMap((clause) => {
-    const words = clause.match(/\S+(?:\s+|$)/g)?.map((word) => word.trim()).filter(Boolean) ?? [clause];
-    if (words.length <= 8) return [clause];
-    const size = Math.ceil(words.length / Math.ceil(words.length / 7));
-    const chunks: string[] = []; for (let index = 0; index < words.length; index += size) chunks.push(words.slice(index, index + size).join(" "));
-    return chunks;
-  });
-  return beats;
-}
-function sceneKind(text: string, index: number, total: number, useAvatar: boolean): PlannedScene["kind"] { if (index === 0 && useAvatar) return "avatar"; if (index === total - 1) return "cta"; const value = text.toLowerCase(); if (/decision pack|£99|\$99/.test(value)) return "pack"; if (/[£$€]\s?\d|cost|spend|investment|lost trading|expensive mistake/.test(value)) return "cost"; if (/risk|regulation|compliance|access|article 4|licensing|drainage|flood|party wall/.test(value)) return "risk"; if (/permission|planning|council|route|use class|local policy/.test(value)) return "planning"; return "property"; }
+function sceneKind(text: string, index: number, total: number, useAvatar: boolean): PlannedScene["kind"] { if (index === 0 && useAvatar) return "avatar"; const value = text.toLowerCase(); if (index === total - 1 && /book|download|get your|contact|start|visit|call|decision pack|next step/.test(value)) return "cta"; if (/decision pack|£99|\$99/.test(value)) return "pack"; if (/[£$€]\s?\d|cost|spend|investment|lost trading|expensive mistake/.test(value)) return "cost"; if (/risk|regulation|compliance|access|article 4|licensing|drainage|flood|party wall|structural damage/.test(value)) return "risk"; if (/permission|planning|council|route|use class|local policy/.test(value)) return "planning"; return "property"; }
 function hashText(value: string) { let hash = 2166136261; for (const char of value) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return hash >>> 0; }
 function headline(text: string, index: number, total: number) {
   if (index >= 0 && total > 0) return text.replace(/[?!.,]/g, "").trim().split(/\s+/).slice(0, 7).join(" ");
@@ -70,7 +60,11 @@ function visualQueryTiers(text: string, brief: PlannedScene["brief"]) {
   return [...specific, visualQuery(text), `${brief.architecture} ${brief.object} UK`];
 }
 function motionVisualFor(scene: PlannedScene): MotionVisual {
-  const value = `${scene.text} ${scene.brief.object} ${scene.brief.topic}`.toLowerCase();
+  const value = scene.text.toLowerCase();
+  if (/structural damage|crack|movement|subsidence/.test(value)) return "structural-damage";
+  if (/foundation|footing|underpin|deeper/.test(value)) return "foundation-detail";
+  if (/soil|clay|moisture|shrink|swell|dry period|when wet/.test(value)) return "soil-movement";
+  if (/tree|root|oak/.test(value)) return "tree-risk";
   if (/£|cost|budget|fee|price|overrun|money|financial/.test(value)) return "cost-analysis";
   if (/week|month|timeline|schedule|delay|deadline|programme/.test(value)) return "project-timeline";
   if (/check|due diligence|verify|review|decision|feasibility/.test(value)) return "compliance-check";
