@@ -1,4 +1,4 @@
-import { execFile } from "node:child_process";
+﻿import { execFile } from "node:child_process";
 import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
@@ -11,6 +11,8 @@ import type { ScoredGalleryAsset } from "./visual-gallery";
 import { selectCreative } from "../apps/web/lib/video/creative-system";
 import { readGenerationHistory, saveGenerationHistory } from "./generation-history";
 import { splitScript } from "./script-scenes";
+import { planVisualScenes } from "./universal-visual-planner";
+import { resolvePremiumSceneVisual } from "./premium-visual-orchestrator";
 
 const exec = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "..");
@@ -22,13 +24,13 @@ function loadEnv() {
 }
 
 async function update(job: VideoJob, status: VideoJob["status"], progress: number, stage: string) { Object.assign(job, { status, progress, stage }); await saveVideoJob(job); }
-function sceneKind(text: string, index: number, total: number, useAvatar: boolean): PlannedScene["kind"] { if (index === 0 && useAvatar) return "avatar"; const value = text.toLowerCase(); if (index === total - 1 && /book|download|get your|contact|start|visit|call|decision pack|next step/.test(value)) return "cta"; if (/decision pack|£99|\$99/.test(value)) return "pack"; if (/[£$€]\s?\d|cost|spend|investment|lost trading|expensive mistake/.test(value)) return "cost"; if (/risk|regulation|compliance|access|article 4|licensing|drainage|flood|party wall|structural damage/.test(value)) return "risk"; if (/permission|planning|council|route|use class|local policy/.test(value)) return "planning"; return "property"; }
+function sceneKind(text: string, index: number, total: number, useAvatar: boolean): PlannedScene["kind"] { if (index === 0 && useAvatar) return "avatar"; const value = text.toLowerCase(); if (index === total - 1 && /book|download|get your|contact|start|visit|call|decision pack|next step/.test(value)) return "cta"; if (/decision pack|Â£99|\$99/.test(value)) return "pack"; if (/[Â£$â‚¬]\s?\d|cost|spend|investment|lost trading|expensive mistake/.test(value)) return "cost"; if (/risk|regulation|compliance|access|article 4|licensing|drainage|flood|party wall|structural damage/.test(value)) return "risk"; if (/permission|planning|council|route|use class|local policy/.test(value)) return "planning"; return "property"; }
 function hashText(value: string) { let hash = 2166136261; for (const char of value) { hash ^= char.charCodeAt(0); hash = Math.imul(hash, 16777619); } return hash >>> 0; }
 function headline(text: string, index: number, total: number) {
   if (index >= 0 && total > 0) return text.replace(/[?!.,]/g, "").trim().split(/\s+/).slice(0, 7).join(" ");
-  if (index === total - 1) { if (/free.*assessment|book/i.test(text)) return "Book your free assessment"; if (/audit/i.test(text)) return "Request your planning audit"; if (/decision pack|£99/i.test(text)) return "Get your Decision Pack"; return "Check the route first"; }
+  if (index === total - 1) { if (/free.*assessment|book/i.test(text)) return "Book your free assessment"; if (/audit/i.test(text)) return "Request your planning audit"; if (/decision pack|Â£99/i.test(text)) return "Get your Decision Pack"; return "Check the route first"; }
   const clean = text.replace(/[?!.,]/g, "").trim();
-  const money = clean.match(/[£$€]\s?[\d,.]+(?:\s*[–-]\s*[£$€]?\s?[\d,.]+)?(?:k|m)?/i)?.[0];
+  const money = clean.match(/[Â£$â‚¬]\s?[\d,.]+(?:\s*[â€“-]\s*[Â£$â‚¬]?\s?[\d,.]+)?(?:k|m)?/i)?.[0];
   if (money) return clean.split(/\s+/).slice(0, 7).join(" ");
   const priority = clean.match(/(?:planning|permission|building regulations|project risks?|commercial project|before you spend|clear next step)/i)?.[0];
   if (priority) return priority.length < 8 ? `Check ${priority}` : priority;
@@ -65,7 +67,7 @@ function motionVisualFor(scene: PlannedScene): MotionVisual {
   if (/foundation|footing|underpin|deeper/.test(value)) return "foundation-detail";
   if (/soil|clay|moisture|shrink|swell|dry period|when wet/.test(value)) return "soil-movement";
   if (/tree|root|oak/.test(value)) return "tree-risk";
-  if (/£|cost|budget|fee|price|overrun|money|financial/.test(value)) return "cost-analysis";
+  if (/Â£|cost|budget|fee|price|overrun|money|financial/.test(value)) return "cost-analysis";
   if (/week|month|timeline|schedule|delay|deadline|programme/.test(value)) return "project-timeline";
   if (/check|due diligence|verify|review|decision|feasibility/.test(value)) return "compliance-check";
   if (/rear extension|extension|rear garden/.test(value)) return "victorian-rear-extension";
@@ -169,29 +171,165 @@ async function main() {
     await mkdir(assets, { recursive: true }); await update(job, "narrating", 20, "Generating ElevenLabs voiceover");
     const narrationFile = path.join(assets, "narration.mp3"); const alignmentFile = path.join(dir, "narration-alignment.json"); let alignment: Alignment | undefined; let duration: number;
     try { duration = Math.max(6, await audioDuration(narrationFile)); try { alignment = JSON.parse(await readFile(alignmentFile, "utf8")) as Alignment; } catch { /* Existing jobs created before alignment persistence use weighted timings. */ } } catch { alignment = await narration(job.input.script, narrationFile); await writeFile(alignmentFile, JSON.stringify(alignment)); duration = Math.max(6, await audioDuration(narrationFile)); }
-    const seed = Number.parseInt(job.variationSeed.slice(0,8),16); const history=await readGenerationHistory(root,job.projectId); const creative=selectCreative({generationId:job.generationId,variationSeed:job.variationSeed,projectId:job.projectId},history,lines.length); const timings = alignment ? alignedSceneTimes(job.input.script, lines, alignment, duration) : weightedSceneTimes(lines, duration); const scenes = lines.map((line, index) => { const short = headline(line, index, lines.length); const context=index>0?`${lines[index-1]} ${line}`:line; const brief=createVisualBrief(context,index+seed); brief.sentence=line; return { text: line, headline: short, ...timings[index], kind: sceneKind(context, index, lines.length, job.input.useAvatar), brief } satisfies PlannedScene; });
+    const seed = Number.parseInt(job.variationSeed.slice(0,8),16); const history=await readGenerationHistory(root,job.projectId); const creative=selectCreative({generationId:job.generationId,variationSeed:job.variationSeed,projectId:job.projectId},history,lines.length); const timings = alignment ? alignedSceneTimes(job.input.script, lines, alignment, duration) : weightedSceneTimes(lines, duration); const scenes: PlannedScene[] = lines.map((line, index) => { const short = headline(line, index, lines.length); const context=index>0?`${lines[index-1]} ${line}`:line; const brief=createVisualBrief(context,index+seed); brief.sentence=line; return { text: line, headline: short, ...timings[index], kind: sceneKind(context, index, lines.length, job.input.useAvatar), brief }; });
     await writeFile(path.join(dir, "scene-briefs.json"), JSON.stringify(scenes.map((scene) => scene.brief), null, 2));
     if (job.input.useAvatar) { await update(job, "avatar", 38, "Generating standing Ella hook"); await createAvatar(lines[0], path.join(assets, "ella.mp4")); }
     await update(job, "composing", job.input.useAvatar ? 57 : 42, "Designing line-matched HyperFrames scenes"); await copyFile(path.join(root, "apps/web/public/brand/plandome-logo.png"), path.join(assets, "logo.png"));
-    const attributions: Array<Record<string, unknown>> = []; const candidateScores:ScoredGalleryAsset[]=[]; const recentAssetIds=new Set(history.slice(0,3).flatMap(x=>x.assetIds));
+    const attributions: Array<Record<string, unknown>> = scenes.map((scene, index) => ({
+      id: `plandome-composition:${index}`,
+      title: `Plandome branded ${scene.kind} scene`,
+      source: "generated:plandome-composition",
+      license: "Original Plandome composition"
+    }));
+    const candidateScores: ScoredGalleryAsset[] = [];
+    const recentAssetIds = new Set(history.slice(0, 3).flatMap((item) => item.assetIds));
     const usedGalleryIds = new Set<string>();
+    const usedSources = new Set<string>();
+
     for (let index = 0; index < scenes.length; index++) {
-      if (["avatar", "cta", "pack"].includes(scenes[index].kind)) continue;
-      scenes[index].motionVisual = motionVisualFor(scenes[index]);
-      attributions.push({ id: `hyperframes:${index}:${scenes[index].motionVisual}`, title: `Plandome ${scenes[index].brief.country} ${scenes[index].brief.object} motion scene`, source: "generated:hyperframes", license: "Original Plandome motion design" });
-      // Use a real company-gallery asset on occasional, deterministic image-led slides.
-      // HyperFrames remains responsible for composition, typography, motion and transitions.
-      if ((seed + index * 13) % 4 !== 0) continue;
+      const scene = scenes[index];
+
+      if (["avatar", "cta", "pack"].includes(scene.kind)) continue;
+
+      scene.motionVisual = undefined;
+      scene.visualAsset = undefined;
+      scene.videoAsset = undefined;
+
+      const generatedPlans = planVisualScenes(lines[index]);
+      const planned = generatedPlans[0];
+
+      if (!planned) {
+        throw new Error(`The premium visual planner did not create scene ${index + 1}.`);
+      }
+
+      let premiumFailure = "";
+
       try {
-        const gallery = await resolveGalleryAsset({ root, sentence: lines[index], briefText: JSON.stringify(scenes[index].brief), sceneIndex: index, seed:job.variationSeed, usedIds: usedGalleryIds, recentIds:recentAssetIds, forbiddenTerms:scenes[index].brief.forbiddenVisualTerms, outputDirectory: assets, scoringLog:candidateScores });
-        if (!gallery) continue;
-        if (gallery.kind === "video") scenes[index].videoAsset = gallery.file;
-        else scenes[index].visualAsset = gallery.file;
-        attributions.push(gallery.attribution);
+        const resolved = await resolvePremiumSceneVisual({
+          ...planned,
+          sceneId: `scene-${String(index + 1).padStart(2, "0")}`,
+          durationSeconds: scene.duration
+        });
+
+        if (resolved.success && resolved.assetPath) {
+          const sourceExtension = path.extname(resolved.assetPath).toLowerCase();
+          const videoExtensions = new Set([".mp4", ".mov", ".webm", ".m4v"]);
+          const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+
+          if (!videoExtensions.has(sourceExtension) && !imageExtensions.has(sourceExtension)) {
+            throw new Error(`Unsupported premium visual format: ${sourceExtension || "unknown"}.`);
+          }
+
+          const outputName = `premium-visual-${index}${sourceExtension}`;
+          await copyFile(resolved.assetPath, path.join(assets, outputName));
+
+          if (videoExtensions.has(sourceExtension)) {
+            scene.videoAsset = outputName;
+          } else {
+            scene.visualAsset = outputName;
+          }
+
+          attributions[index] = {
+            id: `premium:${index}:${resolved.source}`,
+            title: `Photorealistic premium visual for scene ${index + 1}`,
+            source: resolved.source,
+            mode: resolved.mode,
+            attempts: resolved.attempts,
+            originalAsset: resolved.assetPath,
+            license: resolved.source === "comfyui"
+              ? "AI-generated original Plandome visual"
+              : "Plandome visual-library asset"
+          };
+
+          continue;
+        }
+
+        premiumFailure = resolved.error ?? "Premium visual generation returned no media.";
       } catch (cause) {
-        scenes[index].visualFailure = cause instanceof Error ? cause.message : "Company gallery resolution failed.";
+        premiumFailure = cause instanceof Error
+          ? cause.message
+          : "Premium visual generation failed.";
+      }
+
+      try {
+        const gallery = await resolveGalleryAsset({
+          root,
+          sentence: lines[index],
+          briefText: JSON.stringify(scene.brief),
+          sceneIndex: index,
+          seed: job.variationSeed,
+          usedIds: usedGalleryIds,
+          recentIds: recentAssetIds,
+          forbiddenTerms: scene.brief.forbiddenVisualTerms,
+          outputDirectory: assets,
+          scoringLog: candidateScores
+        });
+
+        if (gallery) {
+          if (gallery.kind === "video") {
+            scene.videoAsset = gallery.file;
+          } else {
+            scene.visualAsset = gallery.file;
+          }
+
+          attributions[index] = {
+            ...gallery.attribution,
+            premiumGenerationFailure: premiumFailure
+          };
+
+          continue;
+        }
+      } catch (cause) {
+        scene.visualFailure = cause instanceof Error
+          ? cause.message
+          : "Company gallery resolution failed.";
+      }
+
+      try {
+        const outputName = `uk-visual-${index}.jpg`;
+        const outputPath = path.join(assets, outputName);
+        const commonsAttribution = await fetchUkVisual(
+          visualQuery(lines[index]),
+          seed + index * 97,
+          outputPath,
+          usedSources
+        );
+
+        scene.visualAsset = outputName;
+
+        attributions[index] = {
+          id: `commons:${index}`,
+          ...commonsAttribution,
+          premiumGenerationFailure: premiumFailure,
+          galleryFailure: scene.visualFailure
+        };
+      } catch (cause) {
+        const commonsFailure = cause instanceof Error
+          ? cause.message
+          : "Licensed photographic fallback failed.";
+
+        throw new Error(
+          `Scene ${index + 1} has no realistic media. Premium generation: ${premiumFailure || "not available"}. Gallery: ${scene.visualFailure || "not available"}. Commons: ${commonsFailure}. Cartoon fallback was blocked.`
+        );
       }
     }
+
+    const unresolvedRealisticScenes = scenes
+      .map((scene, index) => ({ scene, index }))
+      .filter(({ scene }) =>
+        !["avatar", "cta", "pack"].includes(scene.kind) &&
+        !scene.visualAsset &&
+        !scene.videoAsset
+      );
+
+    if (unresolvedRealisticScenes.length > 0) {
+      throw new Error(
+        `Realistic media is missing for scenes: ${unresolvedRealisticScenes
+          .map(({ index }) => index + 1)
+          .join(", ")}. CSS and cartoon fallbacks are disabled.`
+      );
+    }
+
     const report = validateVideoPlan(scenes); await writeFile(path.join(dir, "quality-report.json"), JSON.stringify(report, null, 2)); if (!report.passed) { const failures = report.scenes.filter((scene) => !scene.passed).map((scene) => `scene ${scene.index + 1}: ${scene.failures.join(" ")}`).join("; "); throw new Error(`Video quality validation failed: ${failures}`); }
     const design = {generationId:job.generationId,templateIndex:Math.max(0,creative.template.id.length%12),template:creative.template.name,paletteIndex:creative.palette.id.length,palette:{paper:creative.palette.background,ink:creative.palette.primaryText,accent:creative.palette.accent,secondary:creative.palette.surface},fontIndex:creative.fontPair.id.length,fonts:{heading:creative.fontPair.headingFont,body:creative.fontPair.bodyFont},overlay:(creative.template.overlayStyle==="glass"?"glass":creative.template.overlayStyle==="paper"?"editorial":"solid") as "solid"|"glass"|"editorial"|"outline",templateId:creative.template.id,layoutFamily:creative.template.layoutFamily,sceneLayouts:creative.sceneLayouts,transitions:creative.transitions,motionPresets:creative.motionPresets,textStyles:creative.textStyles,creativeFingerprint:creative.creativeFingerprint}; job.creativeFingerprint=creative.creativeFingerprint; await writeFile(path.join(dir, "design-profile.json"), JSON.stringify(design, null, 2)); await writeFile(path.join(dir, "visual-attributions.json"), JSON.stringify(attributions, null, 2)); await writeFile(path.join(dir,"generation-inspector.json"),JSON.stringify({generationId:job.generationId,variationSeed:job.variationSeed,selectedTemplate:creative.template,rejectedTemplates:creative.rejectedTemplateIds,selectedPalette:creative.palette,rejectedPalettes:creative.rejectedPaletteIds,selectedFontPair:creative.fontPair,rejectedFontPairs:creative.rejectedFontPairIds,scenes:scenes.map((scene,index)=>({narration:scene.text,query:scene.brief.searchQuery,candidates:candidateScores.filter(x=>x.asset.id===String((attributions[index] as {id?:string})?.id)),selectedAsset:attributions[index],validation:report.scenes[index]})),creativeFingerprint:creative.creativeFingerprint,canvaStatus:"not-connected"},null,2)); await writeComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design); await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
     await update(job, "rendering", 70, "Rendering animated MP4"); const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin"); const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js"); const renderEnv = { ...process.env, PATH: process.platform==="win32"?`${ffmpegDir}${path.delimiter}${process.env.PATH}`:process.env.PATH }; const silentOutput = path.join(dir, "visual-master.mp4"); const finalOutput = path.join(dir, "output.mp4"); await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv }); await exec(process.execPath, [hyperframes, "render", path.join(dir, "composition"), "--output", silentOutput, "--quality", job.input.quality === "production" ? "high" : "standard", "--fps", "30", "--workers", process.env.RENDER_WORKERS??"2", "--strict"], { env: renderEnv, maxBuffer: 10_000_000 }); await exec(mediaBinary("ffmpeg"), ["-y", "-i", silentOutput, "-i", narrationFile, "-filter_complex", `[1:a]apad=whole_dur=${duration.toFixed(6)}[voice]`, "-map", "0:v:0", "-map", "[voice]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", duration.toFixed(6), "-movflags", "+faststart", finalOutput], { env: renderEnv, maxBuffer: 10_000_000 });
@@ -200,3 +338,4 @@ async function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) void main();
+
