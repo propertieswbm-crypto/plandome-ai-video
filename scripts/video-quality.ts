@@ -77,13 +77,13 @@ export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
     // A semantic motion system is continuously animated and receives a distinct
     // layout, camera move and palette per scene. It is not a repeated asset.
     // Only genuinely static scenes should fail the normal visual-rhythm check.
-    const hasContinuousMotion = Boolean(scene.motionVisual || scene.videoAsset);
-    if (scene.duration > 4.5 && !hasContinuousMotion && !["avatar", "pack", "cta"].includes(scene.kind)) failures.push("Static scene exceeds the normal 2–4 second visual rhythm.");
+    const hasContinuousMotion = Boolean(scene.videoAsset || scene.visualAsset || scene.motionVisual);
+    if (scene.duration > 4.5 && !hasContinuousMotion && !["avatar", "pack", "cta"].includes(scene.kind)) failures.push("Static scene exceeds the normal 2â€“4 second visual rhythm.");
     if (scene.brief && !/United Kingdom|UK|British/i.test(`${scene.brief.country} ${scene.brief.architecture} ${scene.brief.searchQuery}`)) failures.push("Visual brief is not explicitly UK-based.");
     if (/american|usa|united states|suburbia/i.test(scene.brief?.searchQuery ?? "")) failures.push("Visual brief contains prohibited American context.");
-    const normalized=(value:string)=>value.toLowerCase().replace(/[^a-z0-9£$€]+/g," ").trim(); const textAccuracyScore=normalized(scene.text).includes(normalized(scene.headline))?1:0;
+    const normalized=(value:string)=>value.toLowerCase().replace(/[^a-z0-9Â£$â‚¬]+/g," ").trim(); const textAccuracyScore=normalized(scene.text).includes(normalized(scene.headline))?1:0;
     const hasMedia=Boolean(asset)||!requiresMedia;
-    const motionRules:Partial<Record<NonNullable<PlannedScene["motionVisual"]>,RegExp>>={"tree-risk":/tree|root|oak/i,"soil-movement":/soil|clay|moisture|shrink|swell|dry|wet/i,"foundation-detail":/foundation|footing|underpin|deeper/i,"structural-damage":/structural|damage|crack|movement|subsidence/i,"victorian-rear-extension":/extension|rear|garden/i,"planning-drawings":/planning|drawing|permission|council|application/i,"commercial-property":/commercial|office|shop|retail|high street/i,"cost-analysis":/£|cost|budget|fee|price|money/i,"project-timeline":/week|month|timeline|schedule|delay|deadline/i,"compliance-check":/check|due diligence|verify|review|decision|feasibility/i};
+    const motionRules:Partial<Record<NonNullable<PlannedScene["motionVisual"]>,RegExp>>={"tree-risk":/tree|root|oak/i,"soil-movement":/soil|clay|moisture|shrink|swell|dry|wet/i,"foundation-detail":/foundation|footing|underpin|deeper/i,"structural-damage":/structural|damage|crack|movement|subsidence/i,"victorian-rear-extension":/extension|rear|garden/i,"planning-drawings":/planning|drawing|permission|council|application/i,"commercial-property":/commercial|office|shop|retail|high street/i,"cost-analysis":/Â£|cost|budget|fee|price|money/i,"project-timeline":/week|month|timeline|schedule|delay|deadline/i,"compliance-check":/check|due diligence|verify|review|decision|feasibility/i};
     const motionRelevant=scene.motionVisual ? (motionRules[scene.motionVisual]?.test(scene.text) ?? true) : false;
     const visualMatchScore=scene.motionVisual ? .91 : hasMedia ? .86 : 0;
     const architectureScore=scene.brief && /Victorian|Edwardian|Georgian|planning|survey/i.test(`${scene.brief.architecture} ${scene.brief.object}`) ? .88 : 0;
