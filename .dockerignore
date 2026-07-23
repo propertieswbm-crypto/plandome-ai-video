@@ -7,3 +7,4 @@ outputs
 tools
 **/.env*
 !apps/web/.env.example
+worker-secrets.env

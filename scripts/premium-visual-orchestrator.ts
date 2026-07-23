@@ -1,4 +1,4 @@
-﻿import fs from "node:fs/promises";
+import fs from "node:fs/promises";
 import path from "node:path";
 import type {
   SceneCategory,
@@ -209,8 +209,7 @@ export async function resolvePremiumSceneVisual(
     if (
       provider === "replicate" &&
       replicateConfig.enabled &&
-      (scene.visualMode === "ai_image_motion" ||
-        scene.visualMode === "ai_video")
+      scene.category !== "brand_cta"
     ) {
       const generated = await generateReplicateSceneVisual(
         {
@@ -270,8 +269,7 @@ export async function resolvePremiumSceneVisual(
     if (
       provider === "comfyui" &&
       comfyConfig.enabled &&
-      (scene.visualMode === "ai_image_motion" ||
-        scene.visualMode === "ai_video")
+      scene.category !== "brand_cta"
     ) {
       for (let attempt = 1; attempt <= 3; attempt += 1) {
         const retry = createRetryAttempt(
