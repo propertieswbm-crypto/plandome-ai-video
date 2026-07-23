@@ -187,6 +187,7 @@ async function main() {
     const usedGalleryIds = new Set<string>();
     const usedSources = new Set<string>();
     const usedPremiumAssetPaths = new Set<string>();
+    const usedPremiumSourceUrls = new Set<string>();
 
     for (let index = 0; index < scenes.length; index++) {
       const scene = scenes[index];
@@ -217,7 +218,8 @@ async function main() {
             sceneIndex: index,
             totalScenes: scenes.length,
             fullScript: job.input.script,
-            usedAssetPaths: usedPremiumAssetPaths
+            usedAssetPaths: usedPremiumAssetPaths,
+            usedSourceUrls: usedPremiumSourceUrls
           }
         );
 
@@ -251,10 +253,13 @@ async function main() {
             attempts: resolved.attempts,
             originalAsset: resolved.assetPath,
             license:
-              resolved.source === "replicate" ||
-              resolved.source === "comfyui"
-                ? "AI-generated original Plandome visual"
-                : "Plandome visual-library asset"
+              resolved.source === "no_api_commons"
+                ? "Licensed Wikimedia Commons media transformed into an original Plandome motion clip"
+                : resolved.source === "replicate" ||
+                    resolved.source === "comfyui"
+                  ? "AI-generated original Plandome visual"
+                  : "Plandome visual-library asset",
+            metadata: resolved.metadata
           };
 
           continue;

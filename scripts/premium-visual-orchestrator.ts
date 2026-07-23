@@ -1,4 +1,4 @@
-import fs from "node:fs/promises";
+﻿import fs from "node:fs/promises";
 import path from "node:path";
 import type {
   SceneCategory,
@@ -15,9 +15,9 @@ import {
   getComfyUIConfig
 } from "./comfyui-client";
 import {
-  generateReplicateSceneVisual,
-  getReplicateVisualConfig
-} from "./replicate-visual-provider";
+  generateNoApiCinematicVisual,
+  getNoApiVisualConfig
+} from "./no-api-cinematic-provider";
 
 export interface ResolvedSceneVisual {
   sceneId: string;
@@ -25,6 +25,7 @@ export interface ResolvedSceneVisual {
   mode: VisualMode;
   assetPath?: string;
   source:
+    | "no_api_commons"
     | "replicate"
     | "comfyui"
     | "local_video"
@@ -33,6 +34,7 @@ export interface ResolvedSceneVisual {
     | "none";
   attempts: number;
   error?: string;
+  metadata?: Record<string, unknown>;
 }
 
 export interface ResolvePremiumVisualOptions {
@@ -40,6 +42,7 @@ export interface ResolvePremiumVisualOptions {
   totalScenes?: number;
   fullScript?: string;
   usedAssetPaths?: Set<string>;
+  usedSourceUrls?: Set<string>;
 }
 
 const VIDEO_EXTENSIONS = new Set([
@@ -60,7 +63,7 @@ function envBoolean(
   value: string | undefined,
   fallback: boolean
 ): boolean {
-  if (value === undefined || value.trim() === "") return fallback;
+  if (!value || value.trim() === "") return fallback;
 
   return value.trim().toLowerCase() === "true";
 }
@@ -180,18 +183,16 @@ export async function findRealisticLocalFallback(
   };
 }
 
-function providerOrder(): Array<"replicate" | "comfyui"> {
-  const configured = String(
-    process.env.AI_VISUAL_PROVIDER || "replicate"
+function providerOrder(): Array<"no_api" | "comfyui"> {
+  const provider = String(
+    process.env.AI_VISUAL_PROVIDER || "no_api"
   )
     .trim()
     .toLowerCase();
 
-  if (configured === "comfyui") {
-    return ["comfyui", "replicate"];
-  }
-
-  return ["replicate", "comfyui"];
+  return provider === "comfyui"
+    ? ["comfyui", "no_api"]
+    : ["no_api", "comfyui"];
 }
 
 export async function resolvePremiumSceneVisual(
@@ -199,39 +200,33 @@ export async function resolvePremiumSceneVisual(
   options: ResolvePremiumVisualOptions = {}
 ): Promise<ResolvedSceneVisual> {
   const scene = upgradeSceneForPremiumAd(originalScene);
-  const replicateConfig = getReplicateVisualConfig();
+  const noApiConfig = getNoApiVisualConfig();
   const comfyConfig = getComfyUIConfig();
-  const usedAssetPaths = options.usedAssetPaths;
 
   let lastError = "";
 
   for (const provider of providerOrder()) {
     if (
-      provider === "replicate" &&
-      replicateConfig.enabled &&
+      provider === "no_api" &&
+      noApiConfig.enabled &&
       scene.category !== "brand_cta"
     ) {
-      const generated = await generateReplicateSceneVisual(
-        {
-          sceneId: scene.sceneId,
-          sceneIndex: options.sceneIndex ?? 0,
-          totalScenes: options.totalScenes ?? 1,
-          category: scene.category,
-          prompt: scene.visualPrompt,
-          negativePrompt: scene.negativePrompt,
-          fullScript: options.fullScript,
-          seed:
-            Math.abs(
-              [...scene.sceneId].reduce(
-                (total, character) =>
-                  total * 31 + character.charCodeAt(0),
-                17
-              )
-            ) + (options.sceneIndex ?? 0) * 1009,
-          durationSeconds: scene.durationSeconds
-        },
-        replicateConfig
-      );
+      const generated =
+        await generateNoApiCinematicVisual(
+          {
+            sceneId: scene.sceneId,
+            sceneIndex: options.sceneIndex || 0,
+            totalScenes: options.totalScenes || 1,
+            category: scene.category,
+            subject: scene.subject,
+            environment: scene.environment,
+            action: scene.action,
+            fullScript: options.fullScript,
+            durationSeconds: scene.durationSeconds,
+            usedSourceUrls: options.usedSourceUrls
+          },
+          noApiConfig
+        );
 
       if (generated.success && generated.outputPath) {
         const resolvedPath = path.resolve(
@@ -239,30 +234,34 @@ export async function resolvePremiumSceneVisual(
         );
 
         if (
-          !usedAssetPaths ||
-          !usedAssetPaths.has(resolvedPath)
+          !options.usedAssetPaths ||
+          !options.usedAssetPaths.has(resolvedPath)
         ) {
-          usedAssetPaths?.add(resolvedPath);
+          options.usedAssetPaths?.add(resolvedPath);
 
           return {
             sceneId: scene.sceneId,
             success: true,
-            mode:
-              generated.kind === "video"
-                ? "ai_video"
-                : "ai_image_motion",
+            mode: "local_video",
             assetPath: resolvedPath,
-            source: "replicate",
-            attempts: generated.attempts
+            source: "no_api_commons",
+            attempts: generated.attempts,
+            metadata: {
+              sourceUrl: generated.sourceUrl,
+              sourceTitle: generated.sourceTitle,
+              license: generated.license,
+              artist: generated.artist,
+              query: generated.query
+            }
           };
         }
 
         lastError =
-          "Replicate returned media already used by another scene.";
+          "A generated clip duplicated another scene asset.";
       } else {
         lastError =
           generated.error ||
-          "Replicate visual generation failed.";
+          "No-key cinematic media generation failed.";
       }
     }
 
@@ -283,10 +282,7 @@ export async function resolvePremiumSceneVisual(
             sceneId: scene.sceneId,
             prompt: retry.prompt,
             negativePrompt: retry.negativePrompt,
-            mode:
-              scene.visualMode === "ai_video"
-                ? "video"
-                : "image",
+            mode: "video",
             seed: retry.seed || Date.now(),
             width: 720,
             height: 1280,
@@ -298,21 +294,24 @@ export async function resolvePremiumSceneVisual(
           }
         );
 
-        if (generated.success && generated.outputPath) {
+        if (
+          generated.success &&
+          generated.outputPath
+        ) {
           const resolvedPath = path.resolve(
             generated.outputPath
           );
 
           if (
-            !usedAssetPaths ||
-            !usedAssetPaths.has(resolvedPath)
+            !options.usedAssetPaths ||
+            !options.usedAssetPaths.has(resolvedPath)
           ) {
-            usedAssetPaths?.add(resolvedPath);
+            options.usedAssetPaths?.add(resolvedPath);
 
             return {
               sceneId: scene.sceneId,
               success: true,
-              mode: scene.visualMode,
+              mode: "ai_video",
               assetPath: resolvedPath,
               source: "comfyui",
               attempts: attempt
@@ -322,7 +321,7 @@ export async function resolvePremiumSceneVisual(
 
         lastError =
           generated.error ||
-          "ComfyUI visual generation failed.";
+          "ComfyUI generation failed.";
       }
     }
   }
@@ -336,7 +335,7 @@ export async function resolvePremiumSceneVisual(
     const local = await findRealisticLocalFallback(
       scene,
       path.resolve("assets", "visual-library"),
-      usedAssetPaths
+      options.usedAssetPaths
     );
 
     const fallback = selectNoErrorFallback(
@@ -350,7 +349,7 @@ export async function resolvePremiumSceneVisual(
         fallback.assetPath
       );
 
-      usedAssetPaths?.add(resolvedPath);
+      options.usedAssetPaths?.add(resolvedPath);
 
       return {
         sceneId: scene.sceneId,
@@ -380,17 +379,12 @@ export async function resolvePremiumSceneVisual(
   return {
     sceneId: scene.sceneId,
     success: false,
-    mode: "ai_video",
+    mode: "local_video",
     source: "none",
-    attempts: Math.max(
-      replicateConfig.enabled
-        ? replicateConfig.maxAttempts
-        : 0,
-      comfyConfig.enabled ? 3 : 0
-    ),
+    attempts: 0,
     error:
       lastError ||
-      "No unique photorealistic generated video was available."
+      "No unique licensed cinematic media was available."
   };
 }
 
@@ -400,6 +394,7 @@ export async function resolveAllPremiumVisuals(
 ): Promise<ResolvedSceneVisual[]> {
   const results: ResolvedSceneVisual[] = [];
   const usedAssetPaths = new Set<string>();
+  const usedSourceUrls = new Set<string>();
 
   for (let index = 0; index < scenes.length; index += 1) {
     results.push(
@@ -407,7 +402,8 @@ export async function resolveAllPremiumVisuals(
         sceneIndex: index,
         totalScenes: scenes.length,
         fullScript,
-        usedAssetPaths
+        usedAssetPaths,
+        usedSourceUrls
       })
     );
   }
