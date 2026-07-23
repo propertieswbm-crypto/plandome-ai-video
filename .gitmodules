@@ -1,0 +1,9 @@
+[submodule "vendor/ai-tools/ComfyUI"]
+	path = vendor/ai-tools/ComfyUI
+	url = https://github.com/comfyanonymous/ComfyUI.git
+[submodule "vendor/ai-tools/Real-ESRGAN"]
+	path = vendor/ai-tools/Real-ESRGAN
+	url = https://github.com/xinntao/Real-ESRGAN.git
+[submodule "vendor/ai-tools/RIFE"]
+	path = vendor/ai-tools/RIFE
+	url = https://github.com/hzwer/ECCV2022-RIFE.git
