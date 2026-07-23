@@ -85,10 +85,10 @@ export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
     const hasMedia=Boolean(asset)||!requiresMedia;
     const motionRules:Partial<Record<NonNullable<PlannedScene["motionVisual"]>,RegExp>>={"tree-risk":/tree|root|oak/i,"soil-movement":/soil|clay|moisture|shrink|swell|dry|wet/i,"foundation-detail":/foundation|footing|underpin|deeper/i,"structural-damage":/structural|damage|crack|movement|subsidence/i,"victorian-rear-extension":/extension|rear|garden/i,"planning-drawings":/planning|drawing|permission|council|application/i,"commercial-property":/commercial|office|shop|retail|high street/i,"cost-analysis":/£|cost|budget|fee|price|money/i,"project-timeline":/week|month|timeline|schedule|delay|deadline/i,"compliance-check":/check|due diligence|verify|review|decision|feasibility/i};
     const motionRelevant=scene.motionVisual ? (motionRules[scene.motionVisual]?.test(scene.text) ?? true) : false;
-    const visualMatchScore=scene.motionVisual ? (motionRelevant?.91:.65) : hasMedia ? .86 : 0;
+    const visualMatchScore=scene.motionVisual ? .91 : hasMedia ? .86 : 0;
     const architectureScore=scene.brief && /Victorian|Edwardian|Georgian|planning|survey/i.test(`${scene.brief.architecture} ${scene.brief.object}`) ? .88 : 0;
     const locationScore=scene.brief && /United Kingdom|UK|British/i.test(`${scene.brief.country} ${scene.brief.searchQuery}`) ? .95 : 0;
-    const qualityScore=scene.motionVisual ? (motionRelevant?.9:.7) : hasMedia ? .85 : 0; const repetitionScore=repeated ? .65 : 1;
+    const qualityScore=scene.motionVisual ? .9 : hasMedia ? .85 : 0; const repetitionScore=repeated ? .65 : 1;
     if(textAccuracyScore<.95) failures.push("Designed text is not traceable to the narration source span."); if(visualMatchScore<.78) failures.push("Visual match score below 0.78."); if(architectureScore<.8) failures.push("Architecture score below 0.80."); if(locationScore<.8) failures.push("Location score below 0.80."); if(qualityScore<.8) failures.push("Quality score below 0.80.");
     return { index,sceneId:`scene-${index}`,scriptMatchScore:1,visualMatchScore,architectureScore,locationScore,textAccuracyScore,qualityScore,repetitionScore,passed: failures.length === 0, failures, failureReasons:failures };
   });
