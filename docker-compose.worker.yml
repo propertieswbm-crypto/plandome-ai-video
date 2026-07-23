@@ -2,15 +2,12 @@ services:
   render-worker:
 
     env_file:
-
       - ./worker-secrets.env
     build:
       context: .
       dockerfile: Dockerfile.worker
     image: plandome/render-worker:latest
     restart: unless-stopped
-    env_file:
-      - apps/web/.env.local
     environment:
       NODE_ENV: production
       RENDER_WORKERS: "2"

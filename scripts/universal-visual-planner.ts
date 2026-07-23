@@ -87,79 +87,127 @@ const CATEGORY_RULES: Array<{
   action: string;
   overlayStyle: SceneVisualPlan["overlayStyle"];
 }> = [
-  {
-    category: "planning_documents",
-    words: ["planning", "approval", "council", "permission", "application", "consent"],
-    subject: "an experienced architectural professional reviewing detailed planning documents",
-    environment: "a premium contemporary UK architectural studio",
-    action: "carefully comparing drawings, requirements and official correspondence",
-    overlayStyle: "document"
-  },
-  {
-    category: "construction",
-    words: ["builder", "construction", "build", "structural", "steel", "foundation", "roof"],
-    subject: "a real construction detail with authentic building materials",
-    environment: "an active professionally managed UK construction site",
-    action: "being inspected and measured by a qualified construction professional",
-    overlayStyle: "blueprint"
-  },
-  {
-    category: "restaurant",
-    words: ["restaurant", "cafe", "takeaway", "kitchen", "extract", "flue", "odour"],
-    subject: "a premium commercial kitchen and extraction installation",
-    environment: "a realistic modern UK restaurant fit-out",
-    action: "being professionally inspected before installation",
-    overlayStyle: "blueprint"
-  },
-  {
-    category: "property_interior",
-    words: ["loft", "interior", "room", "staircase", "insulation", "ventilation"],
-    subject: "a realistic high-quality UK property interior",
-    environment: "an authentic residential conversion project",
-    action: "showing practical architectural and construction details",
-    overlayStyle: "blueprint"
-  },
-  {
-    category: "property_exterior",
-    words: ["property", "house", "home", "garage", "extension", "commercial", "building", "conversion"],
-    subject: "an authentic British property with accurate architectural details",
-    environment: "a real UK street with natural surroundings",
-    action: "shown as premium professional property advertising footage",
-    overlayStyle: "minimal"
-  },
-  {
-    category: "finance",
-    words: ["profit", "value", "gdv", "investment", "finance", "cost", "wealth", "return"],
-    subject: "a professional property investor reviewing credible project figures",
-    environment: "a premium real-world business office",
-    action: "analysing valuation and development information",
-    overlayStyle: "data"
-  },
-  {
-    category: "technology",
-    words: ["technology", "software", "platform", "automation", "digital", "system", "ai"],
-    subject: "a professional using a modern digital platform",
-    environment: "a realistic premium technology workspace",
-    action: "reviewing clear operational information on screen",
-    overlayStyle: "data"
-  },
-  {
-    category: "education",
-    words: ["learn", "education", "course", "training", "programme", "guide"],
-    subject: "an experienced professional explaining a practical concept",
-    environment: "a premium real-world learning and consultation environment",
-    action: "reviewing relevant examples and supporting material",
-    overlayStyle: "document"
-  },
-  {
-    category: "professional_service",
-    words: ["consultation", "expert", "professional", "team", "service", "assessment"],
-    subject: "a credible senior professional advising a client",
-    environment: "a premium consultation room with authentic business details",
-    action: "discussing a clear practical route forward",
-    overlayStyle: "minimal"
-  }
-];
+    {
+      category: "planning_documents",
+      words: ["planning", "approval", "council", "permission", "application", "consent"],
+      subject: "an experienced architectural professional reviewing detailed planning documents",
+      environment: "a premium contemporary UK architectural studio",
+      action: "carefully comparing drawings, requirements and official correspondence",
+      overlayStyle: "document"
+    },
+    {
+      category: "construction",
+      words: ["builder", "construction", "build", "structural", "steel", "foundation", "roof"],
+      subject: "a real construction detail with authentic building materials",
+      environment: "an active professionally managed UK construction site",
+      action: "being inspected and measured by a qualified construction professional",
+      overlayStyle: "blueprint"
+    },
+    {
+      category: "restaurant",
+      words: ["restaurant", "cafe", "takeaway", "kitchen", "extract", "flue", "odour"],
+      subject: "a premium commercial kitchen and extraction installation",
+      environment: "a realistic modern UK restaurant fit-out",
+      action: "being professionally inspected before installation",
+      overlayStyle: "blueprint"
+    },
+    {
+      category: "property_interior",
+      words: ["loft", "interior", "room", "staircase", "insulation", "ventilation"],
+      subject: "a realistic high-quality UK property interior",
+      environment: "an authentic residential conversion project",
+      action: "showing practical architectural and construction details",
+      overlayStyle: "blueprint"
+    },
+    {
+      category: "property_exterior",
+      words: ["property", "house", "home", "garage", "extension", "commercial", "building", "conversion"],
+      subject: "an authentic British property with accurate architectural details",
+      environment: "a real UK street with natural surroundings",
+      action: "shown as premium professional property advertising footage",
+      overlayStyle: "minimal"
+    },
+    {
+      category: "finance",
+      words: ["profit", "value", "gdv", "investment", "finance", "cost", "wealth", "return"],
+      subject: "a professional property investor reviewing credible project figures",
+      environment: "a premium real-world business office",
+      action: "analysing valuation and development information",
+      overlayStyle: "data"
+    },
+    {
+      category: "technology",
+      words: ["technology", "software", "platform", "automation", "digital", "system", "ai"],
+      subject: "a professional using a modern digital platform",
+      environment: "a realistic premium technology workspace",
+      action: "reviewing clear operational information on screen",
+      overlayStyle: "data"
+    },
+    {
+      category: "education",
+      words: ["learn", "education", "course", "training", "programme", "guide"],
+      subject: "an experienced professional explaining a practical concept",
+      environment: "a premium real-world learning and consultation environment",
+      action: "reviewing relevant examples and supporting material",
+      overlayStyle: "document"
+    },
+    {
+      category: "professional_service",
+      words: ["consultation", "expert", "professional", "team", "service", "assessment"],
+      subject: "a credible senior professional advising a client",
+      environment: "a premium consultation room with authentic business details",
+      action: "discussing a clear practical route forward",
+      overlayStyle: "minimal"
+    },
+    {
+      category: "office",
+      words: ["office", "workspace", "desk", "meeting", "consultant", "team"],
+      subject: "a premium professional office environment",
+      environment: "a realistic UK business workspace",
+      action: "reviewing property and planning information",
+      overlayStyle: "minimal"
+    },
+    {
+      category: "lifestyle",
+      words: ["family", "home", "neighbourhood", "garden", "lifestyle", "residential"],
+      subject: "a warm British residential property setting",
+      environment: "an attractive UK neighbourhood street",
+      action: "showing everyday family life around a premium property",
+      overlayStyle: "minimal"
+    },
+    {
+      category: "technical_explanation",
+      words: ["technical", "regulations", "inspection", "drainage", "flood", "compliance"],
+      subject: "a detailed technical construction explanation",
+      environment: "a professional UK building site environment",
+      action: "presenting practical compliance and risk information",
+      overlayStyle: "data"
+    },
+    {
+      category: "before_after",
+      words: ["before", "after", "renovation", "conversion", "transformation", "improvement"],
+      subject: "a British property before and after renovation",
+      environment: "a realistic UK residential development",
+      action: "revealing the transformation from planning to completion",
+      overlayStyle: "blueprint"
+    },
+    {
+      category: "brand_cta",
+      words: ["contact", "book", "download", "decision", "call", "visit", "start"],
+      subject: "a clear marketing call to action for a property service",
+      environment: "a premium UK business communications setting",
+      action: "inviting the viewer to take a confident next step",
+      overlayStyle: "minimal"
+    },
+    {
+      category: "abstract_business",
+      words: ["development", "project", "vision", "masterplan", "strategy", "proposal"],
+      subject: "a polished commercial development concept",
+      environment: "a premium corporate property planning environment",
+      action: "presenting a high-level property project narrative",
+      overlayStyle: "data"
+    }
+  ];
 
 function normalise(text: string): string {
   return text.toLowerCase().replace(/\s+/g, " ").trim();

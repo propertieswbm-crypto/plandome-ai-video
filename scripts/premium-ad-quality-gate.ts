@@ -9,6 +9,7 @@ export interface PremiumAdMediaReport {
   videoSceneCount: number;
   videoRatio: number;
   duplicateGroups: string[][];
+  duplicateSourceUrlGroups: string[][];
   failures: string[];
 }
 
@@ -37,7 +38,8 @@ async function mediaHash(filePath: string): Promise<string> {
 
 export async function inspectPremiumAdMedia(
   scenes: PlannedScene[],
-  assetsDirectory: string
+  assetsDirectory: string,
+  attributions: Array<Record<string, unknown>> = []
 ): Promise<PremiumAdMediaReport> {
   const failures: string[] = [];
 
@@ -119,6 +121,31 @@ export async function inspectPremiumAdMedia(
     );
   }
 
+  const sourceUrlMap = new Map<string, Array<{ index: number; url: string }>>();
+
+  for (let i = 0; i < scenes.length; i += 1) {
+    const attribution = attributions[i] || {};
+    const sourceUrl = String(attribution.sourceUrl || attribution.source || "").trim();
+
+    if (!sourceUrl) continue;
+
+    const existing = sourceUrlMap.get(sourceUrl) || [];
+    existing.push({ index: i, url: sourceUrl });
+    sourceUrlMap.set(sourceUrl, existing);
+  }
+
+  const duplicateSourceUrlGroups = [...sourceUrlMap.values()]
+    .filter((group) => group.length > 1)
+    .map((group) =>
+      group.map(({ index, url }) => `scene ${index + 1}: ${url}`)
+    );
+
+  for (const group of duplicateSourceUrlGroups) {
+    failures.push(
+      `Repeated source URL detected across ${group.join(", ")}.`
+    );
+  }
+
   const videoRatio =
     mediaScenes.length === 0
       ? 1
@@ -142,17 +169,20 @@ export async function inspectPremiumAdMedia(
     videoSceneCount,
     videoRatio,
     duplicateGroups,
+    duplicateSourceUrlGroups,
     failures
   };
 }
 
 export async function assertPremiumAdMedia(
   scenes: PlannedScene[],
-  assetsDirectory: string
+  assetsDirectory: string,
+  attributions: Array<Record<string, unknown>> = []
 ): Promise<PremiumAdMediaReport> {
   const report = await inspectPremiumAdMedia(
     scenes,
-    assetsDirectory
+    assetsDirectory,
+    attributions
   );
 
   if (

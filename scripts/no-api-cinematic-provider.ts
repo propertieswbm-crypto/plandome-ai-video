@@ -32,6 +32,7 @@ export interface NoApiVisualRequest {
   fullScript?: string;
   durationSeconds: number;
   usedSourceUrls?: Set<string>;
+  usedImageHashes?: Set<string>;
 }
 
 export interface NoApiVisualResult {
@@ -80,110 +81,110 @@ interface SelectedCommonsImage {
 
 const CATEGORY_QUERIES: Record<SceneCategory, string[]> = {
   property_exterior: [
-    "Victorian terraced house London",
-    "British terraced house exterior",
-    "United Kingdom residential street architecture",
-    "Victorian house England"
+    "United Kingdom property exterior architecture",
+    "British Victorian terraced house exterior",
+    "UK residential street property facade",
+    "London house exterior with brickwork"
   ],
   property_interior: [
-    "British Victorian house interior",
-    "United Kingdom residential interior",
-    "London house interior architecture",
-    "British home renovation interior"
+    "British residential interior transformation",
+    "UK property loft conversion interior",
+    "London house room renovation",
+    "Victorian home interior architecture"
   ],
   construction: [
-    "United Kingdom house construction site",
-    "British residential construction",
-    "London building site house",
-    "UK construction inspection"
+    "United Kingdom structural inspection site",
+    "British residential construction detail",
+    "UK house foundation and roof work",
+    "London building site approval process"
   ],
   architecture: [
-    "British architect building inspection",
-    "United Kingdom architecture practice",
-    "London architectural property survey",
-    "British residential architecture"
+    "British architectural practice review",
+    "United Kingdom planning drawing presentation",
+    "London residential architecture survey",
+    "UK property design and planning"
   ],
   planning_documents: [
-    "British architect reviewing plans",
-    "United Kingdom architectural drawings office",
     "UK planning application drawings",
-    "British planning documents architect"
+    "British architectural planning documents",
+    "United Kingdom council permission paperwork",
+    "planning application review documents"
   ],
   commercial_business: [
-    "British high street shopfront",
-    "United Kingdom commercial property",
+    "British high street commercial property",
+    "United Kingdom shopfront architecture",
     "London retail property exterior",
-    "British commercial premises"
+    "UK professional services building"
   ],
   restaurant: [
-    "British restaurant interior",
-    "United Kingdom commercial kitchen",
-    "London hospitality interior",
-    "British restaurant premises"
+    "British commercial kitchen interior",
+    "United Kingdom restaurant extraction system",
+    "London hospitality kitchen design",
+    "UK food service ventilation installation"
   ],
   office: [
-    "British architecture office",
-    "United Kingdom professional office meeting",
-    "London property consultancy office",
-    "British office interior"
+    "British professional office interior",
+    "United Kingdom property consultancy office",
+    "London planning meeting room",
+    "UK corporate architecture workspace"
   ],
   finance: [
-    "British quantity surveyor plans",
-    "United Kingdom property investment office",
-    "British construction cost planning",
-    "UK property finance professional"
+    "British quantity surveyor cost planning",
+    "United Kingdom construction finance review",
+    "UK property investment valuation",
+    "British development appraisal meeting"
   ],
   technology: [
-    "British architecture technology office",
-    "United Kingdom professional computer workspace",
-    "UK property technology office",
-    "British technical design studio"
+    "British digital property platform workspace",
+    "United Kingdom professional technology office",
+    "UK architectural technology review",
+    "London building information modelling desk"
   ],
   education: [
-    "British architecture training",
-    "United Kingdom professional seminar",
-    "British property education",
-    "UK technical presentation"
+    "British property training session",
+    "United Kingdom technical seminar room",
+    "UK planning consultancy presentation",
+    "London architect education workshop"
   ],
   professional_service: [
-    "British architect client consultation",
-    "United Kingdom property professional meeting",
-    "British planning consultant office",
-    "UK professional property advice"
+    "British planning consultant meeting",
+    "United Kingdom architect client consultation",
+    "UK professional service discussion",
+    "London property advisor office"
   ],
   lifestyle: [
-    "British family house exterior",
-    "United Kingdom residential lifestyle",
-    "London home exterior",
-    "British property neighbourhood"
+    "British family home exterior",
+    "United Kingdom residential neighbourhood",
+    "London suburban property street",
+    "UK property lifestyle architecture"
   ],
   abstract_business: [
-    "British commercial property city",
+    "British commercial property cityscape",
     "United Kingdom business district architecture",
-    "London property development",
-    "British urban architecture"
+    "London development site environment",
+    "UK urban property project"
   ],
   technical_explanation: [
-    "British building survey inspection",
-    "United Kingdom construction detail",
-    "UK building control inspection",
-    "British structural property survey"
+    "British building regulations inspection",
+    "United Kingdom technical construction detail",
+    "UK structural engineer site survey",
+    "British property drainage inspection"
   ],
   before_after: [
-    "British house extension",
-    "United Kingdom home renovation",
-    "London rear extension house",
-    "Victorian property renovation"
+    "British house renovation before and after",
+    "United Kingdom rear extension project",
+    "London home improvement transformation",
+    "UK property conversion comparison"
   ],
   brand_cta: [
     "British residential architecture",
-    "London Victorian property"
+    "London property marketing visual"
   ],
   generic_real_world: [
-    "Victorian terraced house London",
     "British residential architecture",
     "United Kingdom property exterior",
-    "London residential street"
+    "London house street scene",
+    "Victorian residential facade"
   ]
 };
 
@@ -337,14 +338,16 @@ export function buildNoApiQueryTiers(
 
   const contextual = [
     `${subject} United Kingdom`,
-    `${environment} British architecture`,
+    `${subject} British architecture`,
+    `${environment} professional UK property`,
     `${subject} ${action} UK`,
+    `${environment} ${action} UK`,
     ...categoryQueries,
-    "Victorian terraced house London",
-    "British residential architecture"
+    `${subject} ${environment}`,
+    `${subject} ${request.category.replace(/_/g, " ")}`
   ]
     .map((query) => sanitizeText(query))
-    .filter((query) => query.length >= 8);
+    .filter((query) => query.length >= 12);
 
   return [...new Set(contextual)];
 }
@@ -487,7 +490,7 @@ function selectCandidates(
 
       if (
         !allowDocuments &&
-        /map|diagram|coat of arms|flag|logo|icon|drawing|floor plan|site plan/i.test(
+        /map|diagram|coat of arms|flag|logo|icon|drawing|floor plan|site plan|illustration|cartoon|render/i.test(
           lowerTitle
         )
       ) {
@@ -502,7 +505,7 @@ function selectCandidates(
         {
           title,
           url: info.url,
-          downloadUrl: info.thumburl || info.url,
+          downloadUrl: info.url || info.thumburl || "",
           mime: info.mime,
           license,
           artist,
@@ -526,10 +529,10 @@ function selectCandidates(
           );
 
         const ukScore =
-          /uk|united kingdom|british|england|london|croydon|manchester|birmingham|leeds/i.test(
+          /uk|united kingdom|british|england|london|croydon|manchester|birmingham|leeds|scotland|wales|northern ireland/i.test(
             title
           )
-            ? 5
+            ? 6
             : 0;
 
         return tokenScore + dimensionScore + ukScore;
@@ -543,7 +546,7 @@ async function downloadImage(
   candidate: SelectedCommonsImage,
   destination: string,
   config: NoApiVisualConfig
-): Promise<void> {
+): Promise<Buffer> {
   const response = await fetchWithTimeout(
     candidate.downloadUrl,
     {
@@ -570,6 +573,7 @@ async function downloadImage(
   }
 
   await writeFile(destination, data);
+  return data;
 }
 
 async function createCinematicVideo(
@@ -720,11 +724,21 @@ export async function generateNoApiCinematicVisual(
         );
 
         try {
-          await downloadImage(
+          const imageBytes = await downloadImage(
             candidate,
             imagePath,
             config
           );
+
+          const imageHash = createHash("sha256")
+            .update(imageBytes)
+            .digest("hex");
+
+          if (request.usedImageHashes?.has(imageHash)) {
+            lastError = "Downloaded image content duplicates a previous scene.";
+            await unlink(imagePath).catch(() => undefined);
+            continue;
+          }
 
           await createCinematicVideo(
             imagePath,
@@ -741,6 +755,7 @@ export async function generateNoApiCinematicVisual(
             );
           }
 
+          request.usedImageHashes?.add(imageHash);
           usedSourceUrls.add(candidate.url);
 
           return {

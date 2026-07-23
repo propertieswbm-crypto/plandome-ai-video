@@ -25,6 +25,39 @@ const financeQueries = buildNoApiQueryTiers({
   durationSeconds: 5
 });
 
+const constructionQueries = buildNoApiQueryTiers({
+  sceneId: "scene-03",
+  sceneIndex: 2,
+  totalScenes: 3,
+  category: "construction",
+  subject: "site manager",
+  environment: "active building site",
+  action: "tracking structural progress",
+  durationSeconds: 5
+});
+
+const planningQueries = buildNoApiQueryTiers({
+  sceneId: "scene-04",
+  sceneIndex: 3,
+  totalScenes: 3,
+  category: "planning_documents",
+  subject: "planning consultant",
+  environment: "architectural studio",
+  action: "reviewing council documents",
+  durationSeconds: 5
+});
+
+const lifestyleQueries = buildNoApiQueryTiers({
+  sceneId: "scene-05",
+  sceneIndex: 4,
+  totalScenes: 3,
+  category: "lifestyle",
+  subject: "family lifestyle",
+  environment: "UK residential street",
+  action: "enjoying a quality home",
+  durationSeconds: 5
+});
+
 if (propertyQueries.length < 4) {
   throw new Error("Property query coverage is too narrow.");
 }
@@ -33,9 +66,27 @@ if (financeQueries.length < 4) {
   throw new Error("Finance query coverage is too narrow.");
 }
 
+if (constructionQueries.length < 4) {
+  throw new Error("Construction query coverage is too narrow.");
+}
+
+if (planningQueries.length < 4) {
+  throw new Error("Planning document query coverage is too narrow.");
+}
+
+if (lifestyleQueries.length < 4) {
+  throw new Error("Lifestyle query coverage is too narrow.");
+}
+
 if (
   JSON.stringify(propertyQueries) ===
-  JSON.stringify(financeQueries)
+  JSON.stringify(financeQueries) ||
+  JSON.stringify(financeQueries) ===
+  JSON.stringify(constructionQueries) ||
+  JSON.stringify(constructionQueries) ===
+  JSON.stringify(planningQueries) ||
+  JSON.stringify(planningQueries) ===
+  JSON.stringify(lifestyleQueries)
 ) {
   throw new Error(
     "Different categories produced identical media searches."

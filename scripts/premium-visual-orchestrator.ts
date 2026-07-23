@@ -25,13 +25,12 @@ export interface ResolvedSceneVisual {
   mode: VisualMode;
   assetPath?: string;
   source:
-    | "no_api_commons"
-    | "replicate"
-    | "comfyui"
-    | "local_video"
-    | "local_image"
-    | "brand_cta"
-    | "none";
+  | "no_api_commons"
+  | "comfyui"
+  | "local_video"
+  | "local_image"
+  | "brand_cta"
+  | "none";
   attempts: number;
   error?: string;
   metadata?: Record<string, unknown>;
@@ -43,6 +42,7 @@ export interface ResolvePremiumVisualOptions {
   fullScript?: string;
   usedAssetPaths?: Set<string>;
   usedSourceUrls?: Set<string>;
+  usedImageHashes?: Set<string>;
 }
 
 const VIDEO_EXTENSIONS = new Set([
@@ -185,14 +185,20 @@ export async function findRealisticLocalFallback(
 
 function providerOrder(): Array<"no_api" | "comfyui"> {
   const provider = String(
-    process.env.AI_VISUAL_PROVIDER || "no_api"
+    process.env.AI_VISUAL_PROVIDER || ""
   )
     .trim()
     .toLowerCase();
 
-  return provider === "comfyui"
-    ? ["comfyui", "no_api"]
-    : ["no_api", "comfyui"];
+  const noApiPreferred =
+    provider === "no_api" ||
+    envBoolean(process.env.NO_API_VISUALS_ENABLED, false);
+
+  if (provider === "comfyui") {
+    return ["comfyui", "no_api"];
+  }
+
+  return noApiPreferred ? ["no_api"] : ["no_api", "comfyui"];
 }
 
 export async function resolvePremiumSceneVisual(
@@ -223,7 +229,8 @@ export async function resolvePremiumSceneVisual(
             action: scene.action,
             fullScript: options.fullScript,
             durationSeconds: scene.durationSeconds,
-            usedSourceUrls: options.usedSourceUrls
+            usedSourceUrls: options.usedSourceUrls,
+            usedImageHashes: options.usedImageHashes
           },
           noApiConfig
         );

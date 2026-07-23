@@ -78,6 +78,62 @@ async function run(): Promise<void> {
     throw new Error("Duplicate media was not rejected.");
   }
 
+  const duplicateSourceUrl = await inspectPremiumAdMedia(
+    [
+      makeScene("Scene with source A", 0, "scene-a.mp4"),
+      makeScene("Scene with source A repeated", 1, "scene-b.mp4")
+    ],
+    root,
+    [
+      { sourceUrl: "https://commons.wikimedia.org/wiki/File:Example.jpg" },
+      { sourceUrl: "https://commons.wikimedia.org/wiki/File:Example.jpg" }
+    ]
+  );
+
+  if (duplicateSourceUrl.passed) {
+    throw new Error("Duplicate source URL was not rejected.");
+  }
+
+  const imageOnlyPath = path.join(root, "scene-image.jpg");
+  await fs.writeFile(imageOnlyPath, Buffer.alloc(120_000, 2));
+
+  const imageOnly = await inspectPremiumAdMedia(
+    [
+      {
+        text: "Scene image only",
+        headline: "Scene image only",
+        start: 0,
+        duration: 5,
+        kind: "property",
+        brief: createVisualBrief("Scene image only", 0),
+        visualAsset: "scene-image.jpg"
+      } as any
+    ],
+    root
+  );
+
+  if (imageOnly.passed) {
+    throw new Error("Image-only media was not rejected for a normal scene.");
+  }
+
+  const ctaReport = await inspectPremiumAdMedia(
+    [
+      {
+        text: "Contact us for a decision pack",
+        headline: "Contact us",
+        start: 0,
+        duration: 5,
+        kind: "cta",
+        brief: createVisualBrief("Contact us for a decision pack", 0)
+      } as any
+    ],
+    root
+  );
+
+  if (!ctaReport.passed) {
+    throw new Error("CTA scene incorrectly failed premium media validation.");
+  }
+
   await fs.rm(root, {
     recursive: true,
     force: true

@@ -21,7 +21,7 @@ const root = path.resolve(import.meta.dirname, "..");
 function loadEnv() {
   return readFile(path.join(root, "apps/web/.env.local"), "utf8").then((text) => {
     for (const line of text.split(/\r?\n/)) { const match = line.match(/^([A-Z0-9_]+)=(.*)$/); if (match) process.env[match[1]] ??= match[2].trim().replace(/^['\"]|['\"]$/g, ""); }
-  }).catch((error:NodeJS.ErrnoException)=>{if(error.code!=="ENOENT")throw error;});
+  }).catch((error: NodeJS.ErrnoException) => { if (error.code !== "ENOENT") throw error; });
 }
 
 async function update(job: VideoJob, status: VideoJob["status"], progress: number, stage: string) { Object.assign(job, { status, progress, stage }); await saveVideoJob(job); }
@@ -54,12 +54,12 @@ function visualQueryTiers(text: string, brief: PlannedScene["brief"]) {
   const value = text.toLowerCase();
   const specific = /rear extension|extension/.test(value) ? ["rear extension terraced house UK", "house extension London"] :
     /loft|roof/.test(value) ? ["loft conversion London house", "Victorian roof London"] :
-    /drawing|plan|permission|council/.test(value) ? ["UK architectural planning drawings", "British planning application"] :
-    /regulation|compliance|construction/.test(value) ? ["UK building construction inspection", "British building control"] :
-    /risk|survey|structural/.test(value) ? ["UK property building survey", "British house inspection"] :
-    /commercial|office|shop|retail/.test(value) ? ["British commercial property London", "UK high street shopfront"] :
-    /cost|budget|spend|invest|delay|redesign/.test(value) ? ["UK quantity surveyor construction plans", "British house renovation plans"] :
-    ["Victorian terraced house London", "British residential street architecture"];
+      /drawing|plan|permission|council/.test(value) ? ["UK architectural planning drawings", "British planning application"] :
+        /regulation|compliance|construction/.test(value) ? ["UK building construction inspection", "British building control"] :
+          /risk|survey|structural/.test(value) ? ["UK property building survey", "British house inspection"] :
+            /commercial|office|shop|retail/.test(value) ? ["British commercial property London", "UK high street shopfront"] :
+              /cost|budget|spend|invest|delay|redesign/.test(value) ? ["UK quantity surveyor construction plans", "British house renovation plans"] :
+                ["Victorian terraced house London", "British residential street architecture"];
   return [...specific, visualQuery(text), `${brief.architecture} ${brief.object} UK`];
 }
 function motionVisualFor(scene: PlannedScene): MotionVisual {
@@ -77,9 +77,9 @@ function motionVisualFor(scene: PlannedScene): MotionVisual {
   if (/risk|survey|structural|regulation|compliance|access|boundary|drainage|flood|party wall/.test(value)) return "property-survey";
   return "victorian-terrace";
 }
-async function hydratePreviousSceneVisuals(currentId:string,script:string,assets:string,seed:number,sceneCount:number){
-  const candidates:Array<{id:string;updated:string}>=[]; try{for(const entry of await readdir(path.join(root,".data/video-jobs"),{withFileTypes:true})){if(!entry.isDirectory()||entry.name===currentId)continue;try{const job=JSON.parse(await readFile(path.join(root,".data/video-jobs",entry.name,"job.json"),"utf8")) as VideoJob;if(job.input.script===script)candidates.push({id:entry.name,updated:job.updatedAt});}catch{/* Ignore incomplete job directories. */}}}catch{return;}
-  candidates.sort((a,b)=>b.updated.localeCompare(a.updated)); for(let index=0;index<sceneCount;index++){const available=[];for(const candidate of candidates.slice(0,12)){const file=path.join(root,".data/video-jobs",candidate.id,"composition/assets",`uk-visual-${index}.jpg`);try{if((await stat(file)).size>=50_000)available.push(file);}catch{/* This generation did not resolve the scene. */}}if(available.length){const selected=available[(seed+index*7)%available.length]!;await copyFile(selected,path.join(assets,`uk-visual-${index}.jpg`));}}
+async function hydratePreviousSceneVisuals(currentId: string, script: string, assets: string, seed: number, sceneCount: number) {
+  const candidates: Array<{ id: string; updated: string }> = []; try { for (const entry of await readdir(path.join(root, ".data/video-jobs"), { withFileTypes: true })) { if (!entry.isDirectory() || entry.name === currentId) continue; try { const job = JSON.parse(await readFile(path.join(root, ".data/video-jobs", entry.name, "job.json"), "utf8")) as VideoJob; if (job.input.script === script) candidates.push({ id: entry.name, updated: job.updatedAt }); } catch {/* Ignore incomplete job directories. */ } } } catch { return; }
+  candidates.sort((a, b) => b.updated.localeCompare(a.updated)); for (let index = 0; index < sceneCount; index++) { const available = []; for (const candidate of candidates.slice(0, 12)) { const file = path.join(root, ".data/video-jobs", candidate.id, "composition/assets", `uk-visual-${index}.jpg`); try { if ((await stat(file)).size >= 50_000) available.push(file); } catch {/* This generation did not resolve the scene. */ } } if (available.length) { const selected = available[(seed + index * 7) % available.length]!; await copyFile(selected, path.join(assets, `uk-visual-${index}.jpg`)); } }
 }
 type CommonsPage = { title?: string; imageinfo?: Array<{ url?: string; thumburl?: string; mime?: string; width?: number; height?: number; extmetadata?: Record<string, { value?: string }> }> };
 const commonsSearchCache = new Map<string, CommonsPage[]>();
@@ -151,7 +151,7 @@ function weightedSceneTimes(lines: string[], duration: number) {
   return weights.map((weight, index) => { const start = elapsed; const end = index === weights.length - 1 ? duration : elapsed + duration * weight / total; elapsed = end; return { start, duration: Math.max(.8, end - start) }; });
 }
 
-function mediaBinary(name:"ffmpeg"|"ffprobe"){return process.platform==="win32"?path.join(root,"tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin",`${name}.exe`):name;}
+function mediaBinary(name: "ffmpeg" | "ffprobe") { return process.platform === "win32" ? path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin", `${name}.exe`) : name; }
 async function audioDuration(file: string) { const { stdout } = await exec(mediaBinary("ffprobe"), ["-v", "error", "-show_entries", "format=duration", "-of", "default=nw=1:nk=1", file]); return Number(stdout.trim()); }
 
 async function createAvatar(hook: string, output: string) {
@@ -172,7 +172,7 @@ async function main() {
     await mkdir(assets, { recursive: true }); await update(job, "narrating", 20, "Generating ElevenLabs voiceover");
     const narrationFile = path.join(assets, "narration.mp3"); const alignmentFile = path.join(dir, "narration-alignment.json"); let alignment: Alignment | undefined; let duration: number;
     try { duration = Math.max(6, await audioDuration(narrationFile)); try { alignment = JSON.parse(await readFile(alignmentFile, "utf8")) as Alignment; } catch { /* Existing jobs created before alignment persistence use weighted timings. */ } } catch { alignment = await narration(job.input.script, narrationFile); await writeFile(alignmentFile, JSON.stringify(alignment)); duration = Math.max(6, await audioDuration(narrationFile)); }
-    const seed = Number.parseInt(job.variationSeed.slice(0,8),16); const history=await readGenerationHistory(root,job.projectId); const creative=selectCreative({generationId:job.generationId,variationSeed:job.variationSeed,projectId:job.projectId},history,lines.length); const timings = alignment ? alignedSceneTimes(job.input.script, lines, alignment, duration) : weightedSceneTimes(lines, duration); const scenes: PlannedScene[] = lines.map((line, index) => { const short = headline(line, index, lines.length); const context=index>0?`${lines[index-1]} ${line}`:line; const brief=createVisualBrief(context,index+seed); brief.sentence=line; return { text: line, headline: short, ...timings[index], kind: sceneKind(context, index, lines.length, job.input.useAvatar), brief }; });
+    const seed = Number.parseInt(job.variationSeed.slice(0, 8), 16); const history = await readGenerationHistory(root, job.projectId); const creative = selectCreative({ generationId: job.generationId, variationSeed: job.variationSeed, projectId: job.projectId }, history, lines.length); const timings = alignment ? alignedSceneTimes(job.input.script, lines, alignment, duration) : weightedSceneTimes(lines, duration); const scenes: PlannedScene[] = lines.map((line, index) => { const short = headline(line, index, lines.length); const context = index > 0 ? `${lines[index - 1]} ${line}` : line; const brief = createVisualBrief(context, index + seed); brief.sentence = line; return { text: line, headline: short, ...timings[index], kind: sceneKind(context, index, lines.length, job.input.useAvatar), brief }; });
     await writeFile(path.join(dir, "scene-briefs.json"), JSON.stringify(scenes.map((scene) => scene.brief), null, 2));
     if (job.input.useAvatar) { await update(job, "avatar", 38, "Generating standing Ella hook"); await createAvatar(lines[0], path.join(assets, "ella.mp4")); }
     await update(job, "composing", job.input.useAvatar ? 57 : 42, "Designing line-matched HyperFrames scenes"); await copyFile(path.join(root, "apps/web/public/brand/plandome-logo.png"), path.join(assets, "logo.png"));
@@ -188,6 +188,7 @@ async function main() {
     const usedSources = new Set<string>();
     const usedPremiumAssetPaths = new Set<string>();
     const usedPremiumSourceUrls = new Set<string>();
+    const usedPremiumImageHashes = new Set<string>();
 
     for (let index = 0; index < scenes.length; index++) {
       const scene = scenes[index];
@@ -219,7 +220,8 @@ async function main() {
             totalScenes: scenes.length,
             fullScript: job.input.script,
             usedAssetPaths: usedPremiumAssetPaths,
-            usedSourceUrls: usedPremiumSourceUrls
+            usedSourceUrls: usedPremiumSourceUrls,
+            usedImageHashes: usedPremiumImageHashes
           }
         );
 
@@ -255,82 +257,32 @@ async function main() {
             license:
               resolved.source === "no_api_commons"
                 ? "Licensed Wikimedia Commons media transformed into an original Plandome motion clip"
-                : resolved.source === "replicate" ||
-                    resolved.source === "comfyui"
-                  ? "AI-generated original Plandome visual"
-                  : "Plandome visual-library asset",
-            metadata: resolved.metadata
+                : resolved.source === "comfyui"
+                  ? "Optional ComfyUI visual asset"
+                  : "Plandome premium visual asset",
+            sourceUrl: resolved.metadata?.sourceUrl,
+            sourceTitle: resolved.metadata?.sourceTitle,
+            artist: resolved.metadata?.artist,
+            query: resolved.metadata?.query
           };
 
           continue;
         }
 
-        premiumFailure = resolved.error ?? "Premium visual generation returned no media.";
+        premiumFailure =
+          resolved.error ||
+          "Premium visual generation returned no media.";
       } catch (cause) {
         premiumFailure = cause instanceof Error
           ? cause.message
           : "Premium visual generation failed.";
       }
 
-      try {
-        const gallery = await resolveGalleryAsset({
-          root,
-          sentence: lines[index],
-          briefText: JSON.stringify(scene.brief),
-          sceneIndex: index,
-          seed: job.variationSeed,
-          usedIds: usedGalleryIds,
-          recentIds: recentAssetIds,
-          forbiddenTerms: scene.brief.forbiddenVisualTerms,
-          outputDirectory: assets,
-          scoringLog: candidateScores
-        });
-
-        if (gallery) {
-          if (gallery.kind === "video") {
-            scene.videoAsset = gallery.file;
-          } else {
-            scene.visualAsset = gallery.file;
-          }
-
-          attributions[index] = {
-            ...gallery.attribution,
-            premiumGenerationFailure: premiumFailure
-          };
-
-          continue;
-        }
-      } catch (cause) {
-        scene.visualFailure = cause instanceof Error
-          ? cause.message
-          : "Company gallery resolution failed.";
-      }
-
-      try {
-        const outputName = `uk-visual-${index}.jpg`;
-        const outputPath = path.join(assets, outputName);
-        const commonsAttribution = await fetchUkVisual(
-          visualQuery(lines[index]),
-          seed + index * 97,
-          outputPath,
-          usedSources
-        );
-
-        scene.visualAsset = outputName;
-
-        attributions[index] = {
-          id: `commons:${index}`,
-          ...commonsAttribution,
-          premiumGenerationFailure: premiumFailure,
-          galleryFailure: scene.visualFailure
-        };
-      } catch (cause) {
-        const commonsFailure = cause instanceof Error
-          ? cause.message
-          : "Licensed photographic fallback failed.";
-
+      if (!scene.videoAsset && !scene.visualAsset) {
         throw new Error(
-          `Scene ${index + 1} has no realistic media. Premium generation: ${premiumFailure || "not available"}. Gallery: ${scene.visualFailure || "not available"}. Commons: ${commonsFailure}. Cartoon fallback was blocked.`
+          `Scene ${index + 1} has no realistic premium media. ` +
+          `Premium generation: ${premiumFailure || "not available"}. ` +
+          "No fallback beyond the licensed premium media pipeline is allowed."
         );
       }
     }
@@ -353,7 +305,8 @@ async function main() {
 
     const premiumMediaReport = await assertPremiumAdMedia(
       scenes,
-      assets
+      assets,
+      attributions
     );
 
     await writeFile(
@@ -362,9 +315,9 @@ async function main() {
     );
 
     const report = validateVideoPlan(scenes); await writeFile(path.join(dir, "quality-report.json"), JSON.stringify(report, null, 2)); if (!report.passed) { const failures = report.scenes.filter((scene) => !scene.passed).map((scene) => `scene ${scene.index + 1}: ${scene.failures.join(" ")}`).join("; "); throw new Error(`Video quality validation failed: ${failures}`); }
-    const design = {generationId:job.generationId,templateIndex:Math.max(0,creative.template.id.length%12),template:creative.template.name,paletteIndex:creative.palette.id.length,palette:{paper:creative.palette.background,ink:creative.palette.primaryText,accent:creative.palette.accent,secondary:creative.palette.surface},fontIndex:creative.fontPair.id.length,fonts:{heading:creative.fontPair.headingFont,body:creative.fontPair.bodyFont},overlay:(creative.template.overlayStyle==="glass"?"glass":creative.template.overlayStyle==="paper"?"editorial":"solid") as "solid"|"glass"|"editorial"|"outline",templateId:creative.template.id,layoutFamily:creative.template.layoutFamily,sceneLayouts:creative.sceneLayouts,transitions:creative.transitions,motionPresets:creative.motionPresets,textStyles:creative.textStyles,creativeFingerprint:creative.creativeFingerprint}; job.creativeFingerprint=creative.creativeFingerprint; await writeFile(path.join(dir, "design-profile.json"), JSON.stringify(design, null, 2)); await writeFile(path.join(dir, "visual-attributions.json"), JSON.stringify(attributions, null, 2)); await writeFile(path.join(dir,"generation-inspector.json"),JSON.stringify({generationId:job.generationId,variationSeed:job.variationSeed,selectedTemplate:creative.template,rejectedTemplates:creative.rejectedTemplateIds,selectedPalette:creative.palette,rejectedPalettes:creative.rejectedPaletteIds,selectedFontPair:creative.fontPair,rejectedFontPairs:creative.rejectedFontPairIds,scenes:scenes.map((scene,index)=>({narration:scene.text,query:scene.brief.searchQuery,candidates:candidateScores.filter(x=>x.asset.id===String((attributions[index] as {id?:string})?.id)),selectedAsset:attributions[index],validation:report.scenes[index]})),creativeFingerprint:creative.creativeFingerprint,canvaStatus:"not-connected"},null,2)); await writeComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design); await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
-    await update(job, "rendering", 70, "Rendering animated MP4"); const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin"); const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js"); const renderEnv = { ...process.env, PATH: process.platform==="win32"?`${ffmpegDir}${path.delimiter}${process.env.PATH}`:process.env.PATH }; const silentOutput = path.join(dir, "visual-master.mp4"); const finalOutput = path.join(dir, "output.mp4"); await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv }); await exec(process.execPath, [hyperframes, "render", path.join(dir, "composition"), "--output", silentOutput, "--quality", job.input.quality === "production" ? "high" : "standard", "--fps", "30", "--workers", process.env.RENDER_WORKERS??"2", "--strict"], { env: renderEnv, maxBuffer: 10_000_000 }); await exec(mediaBinary("ffmpeg"), ["-y", "-i", silentOutput, "-i", narrationFile, "-filter_complex", `[1:a]apad=whole_dur=${duration.toFixed(6)}[voice]`, "-map", "0:v:0", "-map", "[voice]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", duration.toFixed(6), "-movflags", "+faststart", finalOutput], { env: renderEnv, maxBuffer: 10_000_000 });
-    const assetIds=attributions.map(x=>String((x as {id?:string}).id??(x as {source?:string}).source??"")).filter(Boolean); await saveGenerationHistory(root,{generationId:job.generationId,projectId:job.projectId,variationSeed:job.variationSeed,templateId:creative.template.id,layoutFamily:creative.template.layoutFamily,paletteId:creative.palette.id,fontPairId:creative.fontPair.id,assetIds,sceneFingerprints:scenes.map(scene=>hashText(`${scene.text}:${scene.brief.searchQuery}`).toString(16)),creativeFingerprint:creative.creativeFingerprint,createdAt:new Date().toISOString()}); job.outputUrl = `/api/v1/video-jobs/${id}/download`; job.canvaUrl = `/api/v1/video-jobs/${id}/canva`; job.inspectorUrl=`/api/v1/video-jobs/${id}/inspector`; await update(job, "completed", 100, "Video and Canva storyboard ready");
+    const design = { generationId: job.generationId, templateIndex: Math.max(0, creative.template.id.length % 12), template: creative.template.name, paletteIndex: creative.palette.id.length, palette: { paper: creative.palette.background, ink: creative.palette.primaryText, accent: creative.palette.accent, secondary: creative.palette.surface }, fontIndex: creative.fontPair.id.length, fonts: { heading: creative.fontPair.headingFont, body: creative.fontPair.bodyFont }, overlay: (creative.template.overlayStyle === "glass" ? "glass" : creative.template.overlayStyle === "paper" ? "editorial" : "solid") as "solid" | "glass" | "editorial" | "outline", templateId: creative.template.id, layoutFamily: creative.template.layoutFamily, sceneLayouts: creative.sceneLayouts, transitions: creative.transitions, motionPresets: creative.motionPresets, textStyles: creative.textStyles, creativeFingerprint: creative.creativeFingerprint }; job.creativeFingerprint = creative.creativeFingerprint; await writeFile(path.join(dir, "design-profile.json"), JSON.stringify(design, null, 2)); await writeFile(path.join(dir, "visual-attributions.json"), JSON.stringify(attributions, null, 2)); await writeFile(path.join(dir, "generation-inspector.json"), JSON.stringify({ generationId: job.generationId, variationSeed: job.variationSeed, selectedTemplate: creative.template, rejectedTemplates: creative.rejectedTemplateIds, selectedPalette: creative.palette, rejectedPalettes: creative.rejectedPaletteIds, selectedFontPair: creative.fontPair, rejectedFontPairs: creative.rejectedFontPairIds, scenes: scenes.map((scene, index) => ({ narration: scene.text, query: scene.brief.searchQuery, candidates: candidateScores.filter(x => x.asset.id === String((attributions[index] as { id?: string })?.id)), selectedAsset: attributions[index], validation: report.scenes[index] })), creativeFingerprint: creative.creativeFingerprint, canvaStatus: "not-connected" }, null, 2)); await writeComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design); await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
+    await update(job, "rendering", 70, "Rendering animated MP4"); const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin"); const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js"); const renderEnv = { ...process.env, PATH: process.platform === "win32" ? `${ffmpegDir}${path.delimiter}${process.env.PATH}` : process.env.PATH }; const silentOutput = path.join(dir, "visual-master.mp4"); const finalOutput = path.join(dir, "output.mp4"); await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv }); await exec(process.execPath, [hyperframes, "render", path.join(dir, "composition"), "--output", silentOutput, "--quality", job.input.quality === "production" ? "high" : "standard", "--fps", "30", "--workers", process.env.RENDER_WORKERS ?? "2", "--strict"], { env: renderEnv, maxBuffer: 10_000_000 }); await exec(mediaBinary("ffmpeg"), ["-y", "-i", silentOutput, "-i", narrationFile, "-filter_complex", `[1:a]apad=whole_dur=${duration.toFixed(6)}[voice]`, "-map", "0:v:0", "-map", "[voice]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", duration.toFixed(6), "-movflags", "+faststart", finalOutput], { env: renderEnv, maxBuffer: 10_000_000 });
+    const assetIds = attributions.map(x => String((x as { id?: string }).id ?? (x as { source?: string }).source ?? "")).filter(Boolean); await saveGenerationHistory(root, { generationId: job.generationId, projectId: job.projectId, variationSeed: job.variationSeed, templateId: creative.template.id, layoutFamily: creative.template.layoutFamily, paletteId: creative.palette.id, fontPairId: creative.fontPair.id, assetIds, sceneFingerprints: scenes.map(scene => hashText(`${scene.text}:${scene.brief.searchQuery}`).toString(16)), creativeFingerprint: creative.creativeFingerprint, createdAt: new Date().toISOString() }); job.outputUrl = `/api/v1/video-jobs/${id}/download`; job.canvaUrl = `/api/v1/video-jobs/${id}/canva`; job.inspectorUrl = `/api/v1/video-jobs/${id}/inspector`; await update(job, "completed", 100, "Video and Canva storyboard ready");
   } catch (cause) { job.error = { code: "pipeline_failed", message: cause instanceof Error ? cause.message : "Video generation failed." }; await update(job, "failed", job.progress, "Generation failed"); }
 }
 
