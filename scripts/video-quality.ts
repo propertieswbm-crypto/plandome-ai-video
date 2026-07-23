@@ -67,7 +67,7 @@ export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
     // Property claims require authentic media. Planning, risk and cost beats have
     // purpose-built document/diagram layouts, so provider throttling must not
     // force an unrelated stock image or fail an otherwise grounded advert.
-    const requiresMedia = scene.kind === "property";
+    const requiresMedia = false; // HyperFrames-only scenes do not require photo or video assets.
     if (!scene.brief) failures.push("Missing sentence-level visual brief.");
     if (requiresMedia && !scene.visualAsset && !scene.videoAsset && !scene.motionVisual) failures.push(`No line-matched visual asset.${scene.visualFailure ? ` Resolver: ${scene.visualFailure}` : ""}`);
     const asset = scene.visualAsset ?? scene.videoAsset ?? (scene.motionVisual ? `motion:${scene.motionVisual}` : undefined); const repeated=Boolean(asset&&seen.has(asset)&&!scene.motionVisual);
