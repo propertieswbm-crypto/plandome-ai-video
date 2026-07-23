@@ -7,7 +7,6 @@ import type {
 } from "./universal-visual-planner";
 import {
   createRetryAttempt,
-  selectNoErrorFallback,
   upgradeSceneForPremiumAd
 } from "./premium-visual-policy";
 import {
@@ -330,46 +329,6 @@ export async function resolvePremiumSceneVisual(
           generated.error ||
           "ComfyUI generation failed.";
       }
-    }
-  }
-
-  if (
-    envBoolean(
-      process.env.ALLOW_LOCAL_VISUAL_FALLBACK,
-      false
-    )
-  ) {
-    const local = await findRealisticLocalFallback(
-      scene,
-      path.resolve("assets", "visual-library"),
-      options.usedAssetPaths
-    );
-
-    const fallback = selectNoErrorFallback(
-      scene,
-      local.video,
-      local.image
-    );
-
-    if (fallback.allowRender && fallback.assetPath) {
-      const resolvedPath = path.resolve(
-        fallback.assetPath
-      );
-
-      options.usedAssetPaths?.add(resolvedPath);
-
-      return {
-        sceneId: scene.sceneId,
-        success: true,
-        mode: fallback.mode,
-        assetPath: resolvedPath,
-        source:
-          fallback.mode === "local_video"
-            ? "local_video"
-            : "local_image",
-        attempts: 0,
-        error: lastError || undefined
-      };
     }
   }
 
