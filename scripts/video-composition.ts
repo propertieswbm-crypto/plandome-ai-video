@@ -49,14 +49,14 @@ export async function writeComposition(directory: string, scenes: PlannedScene[]
     const motionVisual = scene.motionVisual ? `<div class="motion-visual motion-${scene.motionVisual}" role="img" aria-label="${escapeHtml(scene.brief.object)} in the United Kingdom"><div class="mv-sky"><i></i><i></i><i></i></div><div class="mv-street"></div><div class="mv-house"><span class="mv-roof"></span><span class="mv-chimney"></span><span class="mv-wall"></span><span class="mv-door"></span><span class="mv-window w1"></span><span class="mv-window w2"></span><span class="mv-window w3"></span><span class="mv-extension"></span><span class="mv-shop"></span></div><div class="mv-tree"><b></b><i></i><i></i><i></i><i></i></div><div class="mv-soil"><i></i><i></i><i></i><b>CLAY</b></div><div class="mv-foundation"><i></i><i></i><i></i><b>DEEP FOUNDATION</b></div><div class="mv-crack"><i></i><i></i><i></i><b>STRUCTURAL RISK</b></div><div class="mv-plan"><span></span><span></span><span></span><b>UK PLANNING</b></div><div class="mv-metric"><b>Â£</b><i></i><i></i><i></i></div><div class="mv-timeline"><i></i><i></i><i></i><i></i></div><div class="mv-check"><b>âœ“</b><span>VERIFIED</span></div><div class="mv-marker"><span></span><b>${escapeHtml(scene.brief.object)}</b><small>${escapeHtml(scene.brief.cameraAngle)}</small></div></div>` : "";
     void motionVisual;
     const renderedMotionVisual = "";
-    const visual = scene.kind === "pack" ? pack : scene.videoAsset ? `<div class="video-label"><b>UK VICTORIAN CONTEXT</b><span>0${index + 1}</span></div>` : scene.visualAsset ? `<div class="visual-frame"><img class="scene-visual" src="assets/${escapeHtml(scene.visualAsset)}" alt="UK property visual"><span class="visual-index">0${index + 1}</span></div>` : renderedMotionVisual || (scene.kind === "property" ? '<div class="schematic"><span class="building-block block-a"></span><span class="building-block block-b"></span><span class="building-block block-c"></span><b>PROPERTY REVIEW</b><i>UK / 001</i></div>' :
+    const visual = scene.kind === "pack" ? pack : scene.videoAsset ? `<div class="video-label"><b>UK VICTORIAN CONTEXT</b><span>0${index + 1}</span></div>` : scene.visualAsset ? `<div class="cinematic-visual"><img class="scene-visual" src="assets/${escapeHtml(scene.visualAsset)}" alt="Photorealistic UK property advert scene"><span class="visual-index">0${index + 1}</span></div>` : renderedMotionVisual || (scene.kind === "property" ? '<div class="schematic"><span class="building-block block-a"></span><span class="building-block block-b"></span><span class="building-block block-c"></span><b>PROPERTY REVIEW</b><i>UK / 001</i></div>' :
       scene.kind === "planning" ? '<div class="planning-card"><b>PLANNING</b><span>Permission position</span><i>CHECKED</i></div>' :
       scene.kind === "risk" ? '<div class="risk-grid"><span>BUILDING REGS</span><span>ACCESS</span><span>PROJECT RISK</span><span>COST</span></div>' :
       scene.kind === "cost" ? `<div class="cost-card"><small>CHECK BEFORE YOU COMMIT</small><b>${escapeHtml(amount)}</b><span>AVOIDABLE PROJECT EXPOSURE</span></div>` :
       scene.kind === "cta" ? `<div class="cta-logo" role="img" aria-label="Plandome"></div><div class="cta-button">${escapeHtml(scene.headline)}</div>` : "");
-    return `<section id="scene-${index}" class="scene clip kind-${scene.kind} layout-${(index + styleVariant) % 3} ad-pattern-${(index + styleVariant) % 6} ${scene.videoAsset ? "has-video" : ""}" data-start="${scene.start}" data-duration="${scene.duration}" data-track-index="${100 + index}"><div class="grid"></div><div class="scene-content"><p class="eyebrow">PLANDOME / UK PROJECT CHECK</p>${scene.kind === "pack" ? "" : `<h2>${words}</h2>`}${visual}</div></section>`;
+    return `<section id="scene-${index}" class="scene clip kind-${scene.kind} layout-${(index + styleVariant) % 3} ad-pattern-${(index + styleVariant) % 6} ${scene.videoAsset ? "has-video" : ""} ${scene.visualAsset ? "has-image" : ""} ${scene.videoAsset || scene.visualAsset ? "has-media" : ""}" data-start="${scene.start}" data-duration="${scene.duration}" data-track-index="${100 + index}"><div class="grid"></div><div class="scene-content"><p class="eyebrow">PLANDOME / UK PROJECT CHECK</p>${scene.kind === "pack" ? "" : `<h2>${words}</h2>`}${visual}</div></section>`;
   }).join("\n");
-  const videoClips = scenes.map((scene, index) => scene.videoAsset ? `<video id="broll-${index}" class="broll clip" src="assets/${escapeHtml(scene.videoAsset)}" muted playsinline data-start="${scene.start}" data-duration="${scene.duration}" data-track-index="${12 + index}"></video>` : "").join("\n");
+  const videoClips = scenes.map((scene, index) => scene.videoAsset ? `<video id="broll-${index}" class="broll clip" src="assets/${escapeHtml(scene.videoAsset)}" muted playsinline loop preload="auto" data-start="${scene.start}" data-duration="${scene.duration}" data-track-index="${12 + index}"></video>` : "").join("\n");
   const captions = scenes.map((scene, index) => `<div id="caption-${index}" class="caption clip" data-start="${scene.start}" data-duration="${scene.duration}" data-track-index="${20 + index}"><span id="caption-content-${index}" class="caption-content">${escapeHtml(scene.text)}</span></div>`).join("\n");
   const transitions = scenes.slice(1).map((scene, index) => `<div id="transition-${index}" class="transition clip" data-start="${Math.max(0, scene.start - .14)}" data-duration=".28" data-track-index="${40 + index}"><b>PLANDOME</b></div>`).join("\n");
   const entrances = scenes.map((scene, index) => {
@@ -79,9 +79,177 @@ export async function writeComposition(directory: string, scenes: PlannedScene[]
   const canvaReferenceCss = `.style-0 .visual-frame,.style-1 .visual-frame{border-width:18px;box-shadow:28px 32px 0 #17191e,52px 58px 0 #ffb33f;transform:rotate(-1.2deg)}.style-0 .scene h2,.style-1 .scene h2{text-shadow:5px 5px 0 #ffb33f}.style-0 .planning-card,.style-1 .planning-card{transform:rotate(1.5deg);box-shadow:26px 30px 0 #ffb33f,48px 52px 0 #17191e}.style-2 .scene-content,.style-3 .scene-content{padding-left:82px;padding-right:82px}.style-2 .scene h2,.style-3 .scene h2{font-size:96px}.style-2 .visual-frame,.style-3 .visual-frame{border:0;box-shadow:0 28px 0 #15232c}.style-2 .eyebrow,.style-3 .eyebrow{padding:13px 18px;background:#15232c;color:#fff;align-self:flex-start}.style-4 .scene h2,.style-5 .scene h2{max-width:850px}.style-4 .visual-frame,.style-5 .visual-frame{height:980px;border-radius:42px;box-shadow:18px 22px 0 #291a21}.style-4 .risk-grid span,.style-5 .risk-grid span{border-radius:24px}.style-4 .cta-button,.style-5 .cta-button{border-radius:999px}.scene h2{font-size:clamp(68px,8vw,94px)}.scene-content{gap:34px}.caption{font-size:34px;min-height:82px}.kind-pack .eyebrow{color:#17191e}.kind-cta h2{font-size:104px}.kind-cta .cta-button{margin-top:24px}.visual-index{box-shadow:8px 8px 0 #ffb33f}`;
   const classicTwoCss = `.cost-card{padding:56px;background:#17191e;color:#fffdf8;border:6px solid #fffdf8;box-shadow:28px 32px 0 #b94716,54px 60px 0 #ffb33f;display:flex;flex-direction:column;gap:32px;transform:rotate(-1.2deg)}.cost-card small{font-size:22px;font-weight:900;letter-spacing:.12em;color:#ffb33f}.cost-card b{font:112px/.86 "Archivo Black";letter-spacing:-.06em}.cost-card span{font-size:24px;font-weight:900}.kind-cost h2{font-size:76px}.kind-cost .scene-content{justify-content:center}.style-0 .cost-card{transform:rotate(1.4deg)}.style-0 .risk-grid span:nth-child(1){transform:rotate(-1deg)}.style-0 .risk-grid span:nth-child(4){transform:rotate(1deg)}`;
   const adPatternCss = `.mv-metric,.mv-timeline,.mv-check,.mv-tree,.mv-soil,.mv-foundation,.mv-crack{display:none}.motion-cost-analysis .mv-house,.motion-cost-analysis .mv-street,.motion-project-timeline .mv-house,.motion-project-timeline .mv-street,.motion-compliance-check .mv-house{opacity:.18}.motion-tree-risk .mv-tree{display:block;position:absolute;left:40px;bottom:115px;width:470px;height:610px}.mv-tree b{position:absolute;left:185px;bottom:145px;width:92px;height:330px;background:#70452f;clip-path:polygon(25% 0,78% 0,100% 100%,0 100%)}.mv-tree:before{content:"";position:absolute;left:50px;top:0;width:380px;height:330px;border-radius:48% 52% 44% 56%;background:#31573c;box-shadow:-55px 90px 0 #456c48,75px 76px 0 #294b34}.mv-tree i{position:absolute;left:220px;bottom:130px;width:300px;height:10px;background:#70452f;transform-origin:left;box-shadow:0 0 0 3px #fff3d966}.mv-tree i:nth-of-type(1){rotate:18deg}.mv-tree i:nth-of-type(2){rotate:35deg;width:360px}.mv-tree i:nth-of-type(3){rotate:-20deg;width:250px}.mv-tree i:nth-of-type(4){rotate:-38deg;width:330px}.motion-tree-risk .mv-house{left:410px;right:25px;transform:scale(.78);transform-origin:right bottom}.motion-soil-movement .mv-house,.motion-foundation-detail .mv-house,.motion-structural-damage .mv-house{opacity:.25}.motion-soil-movement .mv-soil{display:block;position:absolute;inset:250px 65px 110px;background:#a96e47;overflow:hidden;border:8px solid #4d342b}.mv-soil i{display:block;height:92px;border-bottom:7px solid #fff3d988;background:repeating-linear-gradient(135deg,#855238 0 18px,#9a6242 18px 36px);transform-origin:left}.mv-soil i:nth-child(2){background:#6e4938}.mv-soil i:nth-child(3){background:#435f68}.mv-soil b{position:absolute;right:38px;bottom:35px;font-size:42px;color:#fffdf8}.motion-foundation-detail .mv-foundation{display:block;position:absolute;inset:205px 80px 115px;background:#c7b9a4;border-bottom:30px solid #6b5949}.mv-foundation i{position:absolute;bottom:0;width:130px;height:530px;background:#ded8ca;border:12px solid #5e5b56;transform-origin:bottom}.mv-foundation i:nth-child(1){left:90px}.mv-foundation i:nth-child(2){left:355px;height:610px}.mv-foundation i:nth-child(3){right:90px;height:470px}.mv-foundation b{position:absolute;left:48px;top:38px;padding:18px;background:#17191e;color:#fffdf8;font-size:30px}.motion-structural-damage .mv-crack{display:block;position:absolute;inset:150px 95px 130px;background:#b75f45;border:12px solid #fff3d9;box-shadow:26px 30px 0 #17191e}.mv-crack i{position:absolute;left:48%;top:70px;width:16px;height:220px;background:#fff3d9;transform-origin:top;rotate:18deg}.mv-crack i:nth-child(2){top:270px;left:54%;height:190px;rotate:-24deg}.mv-crack i:nth-child(3){top:440px;left:48%;height:150px;rotate:31deg}.mv-crack b{position:absolute;left:35px;bottom:32px;padding:18px 22px;background:#17191e;color:#fffdf8;font-size:30px}.motion-cost-analysis .mv-metric{display:flex;position:absolute;inset:150px 80px 190px;align-items:flex-end;gap:28px;padding:70px;background:#17191e;color:#fffdf8}.mv-metric b{position:absolute;left:60px;top:45px;font-size:190px;color:#ffb33f}.mv-metric i{width:22%;background:#ffb33f;height:30%;transform-origin:bottom}.mv-metric i:nth-of-type(2){height:58%}.mv-metric i:nth-of-type(3){height:84%}.motion-project-timeline .mv-timeline{display:flex;position:absolute;left:70px;right:70px;top:330px;height:220px;align-items:center;justify-content:space-between;border-top:12px solid #17191e}.mv-timeline i{width:70px;height:70px;margin-top:-12px;border-radius:50%;background:#ffb33f;border:10px solid #17191e;box-shadow:0 0 0 14px #fffdf8}.motion-compliance-check .mv-check{display:flex;position:absolute;inset:180px 100px 240px;flex-direction:column;align-items:center;justify-content:center;background:#fffdf8;border:12px solid #17191e;box-shadow:34px 38px 0 #ffb33f}.mv-check b{display:grid;place-items:center;width:260px;height:260px;border-radius:50%;background:#25536a;color:#fffdf8;font-size:170px}.mv-check span{margin-top:40px;font-size:44px;font-weight:900;letter-spacing:.12em}.transition{display:grid;place-items:center}.transition b{font-size:36px;letter-spacing:.18em;color:#17191e}.scene h2{font-weight:900!important;-webkit-text-stroke:0!important;text-shadow:none!important}.ad-pattern-1 .scene-content{align-items:flex-end;text-align:right}.ad-pattern-1 .premium-visual{position:relative;width:100%;height:820px;overflow:hidden;border:12px solid #fffdf8;box-shadow:24px 28px 0 #17191e;transform-origin:center;will-change:transform}.motion-visual{transform:rotate(1.2deg)}.ad-pattern-2 .scene-content{justify-content:flex-end}.ad-pattern-2 h2{padding:24px;background:#fffdf8;color:#17191e;box-shadow:16px 18px 0 #17191e}.ad-pattern-3 .premium-visual{position:relative;width:100%;height:820px;overflow:hidden;border:12px solid #fffdf8;box-shadow:24px 28px 0 #17191e;transform-origin:center;will-change:transform}.motion-visual{border-radius:42px;box-shadow:22px 26px 0 #ffb33f}.ad-pattern-3 h2{font-size:74px;max-width:720px}.ad-pattern-4 .scene-content{padding-left:110px;padding-right:110px}.ad-pattern-4 .premium-visual{position:relative;width:100%;height:820px;overflow:hidden;border:12px solid #fffdf8;box-shadow:24px 28px 0 #17191e;transform-origin:center;will-change:transform}.motion-visual{clip-path:polygon(4% 0,100% 4%,96% 100%,0 94%);border:0}.ad-pattern-5 h2{font-family:Georgia,serif;text-transform:none;font-weight:900}.ad-pattern-5 .premium-visual{position:relative;width:100%;height:820px;overflow:hidden;border:12px solid #fffdf8;box-shadow:24px 28px 0 #17191e;transform-origin:center;will-change:transform}.motion-visual{border:26px double #17191e}`;
+  const cinematicAdCss = \`
+.has-media{
+  background:#071a2d!important;
+  color:#fff!important
+}
+.has-media .grid{
+  display:none!important
+}
+.has-media .scene-content{
+  justify-content:flex-end!important;
+  align-items:flex-start!important;
+  gap:18px!important;
+  padding:120px 62px 245px!important
+}
+.has-media .cinematic-visual{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  z-index:0!important;
+  overflow:hidden!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  transform:none!important
+}
+.has-media .cinematic-visual:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:2;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(3,12,24,.12) 0%,
+      rgba(3,12,24,.06) 36%,
+      rgba(3,12,24,.52) 68%,
+      rgba(3,12,24,.93) 100%
+    )
+}
+.has-media .scene-visual{
+  position:absolute!important;
+  inset:0!important;
+  width:100%!important;
+  height:100%!important;
+  z-index:1!important;
+  object-fit:cover!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  filter:
+    saturate(.92)
+    contrast(1.05)
+    brightness(.9)!important;
+  transform-origin:center center!important
+}
+.has-media .eyebrow{
+  position:relative!important;
+  z-index:6!important;
+  margin:0!important;
+  padding:10px 15px!important;
+  background:rgba(7,26,45,.82)!important;
+  color:#fff!important;
+  border-left:6px solid #d6a85a!important;
+  border-radius:2px!important;
+  backdrop-filter:blur(12px)!important;
+  font-size:17px!important;
+  letter-spacing:.11em!important
+}
+.has-media h2{
+  position:relative!important;
+  z-index:6!important;
+  width:auto!important;
+  max-width:910px!important;
+  margin:0!important;
+  padding:24px 28px 27px!important;
+  background:
+    linear-gradient(
+      110deg,
+      rgba(7,26,45,.94),
+      rgba(7,26,45,.68)
+    )!important;
+  color:#fff!important;
+  border-left:9px solid #d6a85a!important;
+  border-radius:0 20px 20px 0!important;
+  box-shadow:0 18px 45px rgba(0,0,0,.26)!important;
+  backdrop-filter:blur(14px)!important;
+  font-size:72px!important;
+  line-height:.94!important;
+  letter-spacing:-.045em!important;
+  text-align:left!important;
+  text-shadow:none!important;
+  -webkit-text-stroke:0!important
+}
+.has-video:after{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:2;
+  pointer-events:none;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(3,12,24,.12) 0%,
+      rgba(3,12,24,.04) 40%,
+      rgba(3,12,24,.55) 72%,
+      rgba(3,12,24,.94) 100%
+    )
+}
+.broll{
+  inset:0!important;
+  width:1080px!important;
+  height:1920px!important;
+  z-index:1!important;
+  object-fit:cover!important;
+  filter:
+    saturate(.94)
+    contrast(1.05)
+    brightness(.9)!important
+}
+.video-label{
+  display:none!important
+}
+.visual-index{
+  position:absolute!important;
+  z-index:7!important;
+  right:32px!important;
+  top:42px!important;
+  padding:8px 11px!important;
+  background:rgba(7,26,45,.82)!important;
+  color:#d6a85a!important;
+  border:1px solid rgba(214,168,90,.55)!important;
+  box-shadow:none!important;
+  font-size:16px!important
+}
+.has-media .brand-bug{
+  width:270px!important;
+  padding:11px 14px!important;
+  background:rgba(255,255,255,.94)!important;
+  border:0!important;
+  border-radius:8px!important;
+  box-shadow:0 12px 32px rgba(0,0,0,.18)!important
+}
+.caption{
+  left:62px!important;
+  right:62px!important;
+  bottom:58px!important;
+  min-height:72px!important;
+  padding:16px 22px!important;
+  background:rgba(7,26,45,.9)!important;
+  color:#fff!important;
+  border-top:3px solid #d6a85a!important;
+  border-radius:8px!important;
+  backdrop-filter:blur(12px)!important;
+  font-family:Montserrat,Arial,sans-serif!important;
+  font-size:29px!important;
+  line-height:1.08!important;
+  text-transform:none!important;
+  letter-spacing:-.01em!important
+}
+.kind-cta h2,
+.kind-pack h2{
+  background:none!important;
+  border:0!important;
+  box-shadow:none!important;
+  backdrop-filter:none!important
+}
+\`;
   const designCss = `@font-face{font-family:"${design.fonts.heading}";src:local("${design.fonts.heading}");font-weight:100 900}@font-face{font-family:"${design.fonts.body}";src:local("${design.fonts.body}");font-weight:100 900}body,#root,.scene:not(.has-video){background:${design.palette.paper};color:${design.palette.ink}}body{font-family:"${design.fonts.body}",sans-serif}.scene h2,.caption,.planning-card b,.cost-card b{font-family:"${design.fonts.heading}",sans-serif}.transition,.kind-cta,.kind-pack{background:${design.palette.accent}}.brand-bug,.visual-frame,.planning-card{box-shadow:18px 22px 0 ${design.palette.accent}}.eyebrow{align-self:flex-start;padding:10px 14px;background:#fffdf8;color:#17191e;border-left:8px solid ${design.palette.accent}}.has-video .eyebrow{background:#17191ee8;color:#fffdf8}.overlay-glass .scene-content{backdrop-filter:blur(10px)}.overlay-outline h2{-webkit-text-stroke:2px ${design.palette.ink};color:${design.palette.secondary}}.template-8 .scene-content,.template-9 .scene-content{padding-left:100px;padding-right:100px}.template-10 h2,.template-14 h2{font-size:104px}.template-11 .grid{opacity:.25}.template-12 .visual-frame{border-radius:28px}.template-13 .scene-content{background:${design.palette.secondary}22}`;
   const templateCss=templateCssFor(design.templateId);
-  await writeFile(path.join(directory, "index.html"), html.replace(sceneHtml, `${videoClips}${sceneHtml}`).replace("</style>", `${productionCss}${variantCss}${canvaReferenceCss}${classicTwoCss}${adPatternCss}${designCss}${templateCss}</style>`));
+  await writeFile(path.join(directory, "index.html"), html.replace(sceneHtml, `${videoClips}${sceneHtml}`).replace("</style>", `${productionCss}${variantCss}${canvaReferenceCss}${classicTwoCss}${adPatternCss}${designCss}${templateCss}${cinematicAdCss}</style>`));
   await writeFile(path.join(directory, "DESIGN.md"), `# ${design.template}\n\nGeneration: ${design.generationId}\nPalette: ${design.palette.paper}, ${design.palette.ink}, ${design.palette.accent}, ${design.palette.secondary}\nTypography: ${design.fonts.heading} / ${design.fonts.body}\nOverlay: ${design.overlay}\n`);
 }
 

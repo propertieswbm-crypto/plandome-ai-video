@@ -33,3 +33,5 @@ repair-report-*.txt
 *.mp3
 *.pem
 *.key
+
+worker-secrets.env

@@ -13,6 +13,7 @@ import { readGenerationHistory, saveGenerationHistory } from "./generation-histo
 import { splitScript } from "./script-scenes";
 import { planVisualScenes } from "./universal-visual-planner";
 import { resolvePremiumSceneVisual } from "./premium-visual-orchestrator";
+import { assertPremiumAdMedia } from "./premium-ad-quality-gate";
 
 const exec = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "..");
@@ -185,6 +186,7 @@ async function main() {
     const recentAssetIds = new Set(history.slice(0, 3).flatMap((item) => item.assetIds));
     const usedGalleryIds = new Set<string>();
     const usedSources = new Set<string>();
+    const usedPremiumAssetPaths = new Set<string>();
 
     for (let index = 0; index < scenes.length; index++) {
       const scene = scenes[index];
@@ -205,13 +207,25 @@ async function main() {
       let premiumFailure = "";
 
       try {
-        const resolved = await resolvePremiumSceneVisual({
-          ...planned,
-          sceneId: `scene-${String(index + 1).padStart(2, "0")}`,
-          durationSeconds: scene.duration
-        });
+        const resolved = await resolvePremiumSceneVisual(
+          {
+            ...planned,
+            sceneId: `scene-${String(index + 1).padStart(2, "0")}`,
+            durationSeconds: scene.duration
+          },
+          {
+            sceneIndex: index,
+            totalScenes: scenes.length,
+            fullScript: job.input.script,
+            usedAssetPaths: usedPremiumAssetPaths
+          }
+        );
 
         if (resolved.success && resolved.assetPath) {
+          usedPremiumAssetPaths.add(
+            path.resolve(resolved.assetPath)
+          );
+
           const sourceExtension = path.extname(resolved.assetPath).toLowerCase();
           const videoExtensions = new Set([".mp4", ".mov", ".webm", ".m4v"]);
           const imageExtensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
@@ -236,9 +250,11 @@ async function main() {
             mode: resolved.mode,
             attempts: resolved.attempts,
             originalAsset: resolved.assetPath,
-            license: resolved.source === "comfyui"
-              ? "AI-generated original Plandome visual"
-              : "Plandome visual-library asset"
+            license:
+              resolved.source === "replicate" ||
+              resolved.source === "comfyui"
+                ? "AI-generated original Plandome visual"
+                : "Plandome visual-library asset"
           };
 
           continue;
@@ -330,6 +346,16 @@ async function main() {
       );
     }
 
+    const premiumMediaReport = await assertPremiumAdMedia(
+      scenes,
+      assets
+    );
+
+    await writeFile(
+      path.join(dir, "premium-media-report.json"),
+      JSON.stringify(premiumMediaReport, null, 2)
+    );
+
     const report = validateVideoPlan(scenes); await writeFile(path.join(dir, "quality-report.json"), JSON.stringify(report, null, 2)); if (!report.passed) { const failures = report.scenes.filter((scene) => !scene.passed).map((scene) => `scene ${scene.index + 1}: ${scene.failures.join(" ")}`).join("; "); throw new Error(`Video quality validation failed: ${failures}`); }
     const design = {generationId:job.generationId,templateIndex:Math.max(0,creative.template.id.length%12),template:creative.template.name,paletteIndex:creative.palette.id.length,palette:{paper:creative.palette.background,ink:creative.palette.primaryText,accent:creative.palette.accent,secondary:creative.palette.surface},fontIndex:creative.fontPair.id.length,fonts:{heading:creative.fontPair.headingFont,body:creative.fontPair.bodyFont},overlay:(creative.template.overlayStyle==="glass"?"glass":creative.template.overlayStyle==="paper"?"editorial":"solid") as "solid"|"glass"|"editorial"|"outline",templateId:creative.template.id,layoutFamily:creative.template.layoutFamily,sceneLayouts:creative.sceneLayouts,transitions:creative.transitions,motionPresets:creative.motionPresets,textStyles:creative.textStyles,creativeFingerprint:creative.creativeFingerprint}; job.creativeFingerprint=creative.creativeFingerprint; await writeFile(path.join(dir, "design-profile.json"), JSON.stringify(design, null, 2)); await writeFile(path.join(dir, "visual-attributions.json"), JSON.stringify(attributions, null, 2)); await writeFile(path.join(dir,"generation-inspector.json"),JSON.stringify({generationId:job.generationId,variationSeed:job.variationSeed,selectedTemplate:creative.template,rejectedTemplates:creative.rejectedTemplateIds,selectedPalette:creative.palette,rejectedPalettes:creative.rejectedPaletteIds,selectedFontPair:creative.fontPair,rejectedFontPairs:creative.rejectedFontPairIds,scenes:scenes.map((scene,index)=>({narration:scene.text,query:scene.brief.searchQuery,candidates:candidateScores.filter(x=>x.asset.id===String((attributions[index] as {id?:string})?.id)),selectedAsset:attributions[index],validation:report.scenes[index]})),creativeFingerprint:creative.creativeFingerprint,canvaStatus:"not-connected"},null,2)); await writeComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design); await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
     await update(job, "rendering", 70, "Rendering animated MP4"); const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin"); const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js"); const renderEnv = { ...process.env, PATH: process.platform==="win32"?`${ffmpegDir}${path.delimiter}${process.env.PATH}`:process.env.PATH }; const silentOutput = path.join(dir, "visual-master.mp4"); const finalOutput = path.join(dir, "output.mp4"); await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv }); await exec(process.execPath, [hyperframes, "render", path.join(dir, "composition"), "--output", silentOutput, "--quality", job.input.quality === "production" ? "high" : "standard", "--fps", "30", "--workers", process.env.RENDER_WORKERS??"2", "--strict"], { env: renderEnv, maxBuffer: 10_000_000 }); await exec(mediaBinary("ffmpeg"), ["-y", "-i", silentOutput, "-i", narrationFile, "-filter_complex", `[1:a]apad=whole_dur=${duration.toFixed(6)}[voice]`, "-map", "0:v:0", "-map", "[voice]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", duration.toFixed(6), "-movflags", "+faststart", finalOutput], { env: renderEnv, maxBuffer: 10_000_000 });
@@ -338,4 +364,3 @@ async function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) void main();
-

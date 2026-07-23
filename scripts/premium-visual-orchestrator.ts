@@ -14,19 +14,56 @@ import {
   generateWithComfyUI,
   getComfyUIConfig
 } from "./comfyui-client";
+import {
+  generateReplicateSceneVisual,
+  getReplicateVisualConfig
+} from "./replicate-visual-provider";
 
 export interface ResolvedSceneVisual {
   sceneId: string;
   success: boolean;
   mode: VisualMode;
   assetPath?: string;
-  source: "comfyui" | "local_video" | "local_image" | "brand_cta" | "none";
+  source:
+    | "replicate"
+    | "comfyui"
+    | "local_video"
+    | "local_image"
+    | "brand_cta"
+    | "none";
   attempts: number;
   error?: string;
 }
 
-const VIDEO_EXTENSIONS = new Set([".mp4", ".mov", ".webm", ".m4v"]);
-const IMAGE_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+export interface ResolvePremiumVisualOptions {
+  sceneIndex?: number;
+  totalScenes?: number;
+  fullScript?: string;
+  usedAssetPaths?: Set<string>;
+}
+
+const VIDEO_EXTENSIONS = new Set([
+  ".mp4",
+  ".mov",
+  ".webm",
+  ".m4v"
+]);
+
+const IMAGE_EXTENSIONS = new Set([
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp"
+]);
+
+function envBoolean(
+  value: string | undefined,
+  fallback: boolean
+): boolean {
+  if (value === undefined || value.trim() === "") return fallback;
+
+  return value.trim().toLowerCase() === "true";
+}
 
 function categoryFolder(category: SceneCategory): string {
   return category.replace(/_/g, "-");
@@ -37,13 +74,17 @@ async function listMediaFiles(
   extensions: Set<string>
 ): Promise<string[]> {
   try {
-    const entries = await fs.readdir(directory, { withFileTypes: true });
+    const entries = await fs.readdir(directory, {
+      withFileTypes: true
+    });
 
     return entries
       .filter(
         (entry) =>
           entry.isFile() &&
-          extensions.has(path.extname(entry.name).toLowerCase())
+          extensions.has(
+            path.extname(entry.name).toLowerCase()
+          )
       )
       .map((entry) => path.resolve(directory, entry.name))
       .sort();
@@ -62,37 +103,70 @@ function stableIndex(sceneId: string, length: number): number {
   return length === 0 ? 0 : hash % length;
 }
 
+function unusedCandidates(
+  candidates: string[],
+  usedAssetPaths?: Set<string>
+): string[] {
+  if (!usedAssetPaths) return candidates;
+
+  return candidates.filter(
+    (candidate) =>
+      !usedAssetPaths.has(path.resolve(candidate))
+  );
+}
+
 export async function findRealisticLocalFallback(
   scene: SceneVisualPlan,
-  libraryRoot = path.resolve("assets", "visual-library")
-): Promise<{ video?: string; image?: string }> {
-  const category = categoryFolder(scene.fallbackCategory || scene.category);
+  libraryRoot = path.resolve("assets", "visual-library"),
+  usedAssetPaths?: Set<string>
+): Promise<{
+  video?: string;
+  image?: string;
+}> {
+  const category = categoryFolder(
+    scene.fallbackCategory || scene.category
+  );
+
+  const allowGeneric = envBoolean(
+    process.env.ALLOW_GENERIC_VISUAL_FALLBACK,
+    false
+  );
 
   const videoDirectories = [
     path.join(libraryRoot, "videos", category),
-    path.join(libraryRoot, "videos", "generic-real-world")
+    ...(allowGeneric
+      ? [path.join(libraryRoot, "videos", "generic-real-world")]
+      : [])
   ];
 
   const imageDirectories = [
     path.join(libraryRoot, "images", category),
-    path.join(libraryRoot, "images", "generic-real-world")
+    ...(allowGeneric
+      ? [path.join(libraryRoot, "images", "generic-real-world")]
+      : [])
   ];
 
-  const videos = (
-    await Promise.all(
-      videoDirectories.map((directory) =>
-        listMediaFiles(directory, VIDEO_EXTENSIONS)
+  const videos = unusedCandidates(
+    (
+      await Promise.all(
+        videoDirectories.map((directory) =>
+          listMediaFiles(directory, VIDEO_EXTENSIONS)
+        )
       )
-    )
-  ).flat();
+    ).flat(),
+    usedAssetPaths
+  );
 
-  const images = (
-    await Promise.all(
-      imageDirectories.map((directory) =>
-        listMediaFiles(directory, IMAGE_EXTENSIONS)
+  const images = unusedCandidates(
+    (
+      await Promise.all(
+        imageDirectories.map((directory) =>
+          listMediaFiles(directory, IMAGE_EXTENSIONS)
+        )
       )
-    )
-  ).flat();
+    ).flat(),
+    usedAssetPaths
+  );
 
   return {
     video:
@@ -106,74 +180,193 @@ export async function findRealisticLocalFallback(
   };
 }
 
+function providerOrder(): Array<"replicate" | "comfyui"> {
+  const configured = String(
+    process.env.AI_VISUAL_PROVIDER || "replicate"
+  )
+    .trim()
+    .toLowerCase();
+
+  if (configured === "comfyui") {
+    return ["comfyui", "replicate"];
+  }
+
+  return ["replicate", "comfyui"];
+}
+
 export async function resolvePremiumSceneVisual(
-  originalScene: SceneVisualPlan
+  originalScene: SceneVisualPlan,
+  options: ResolvePremiumVisualOptions = {}
 ): Promise<ResolvedSceneVisual> {
   const scene = upgradeSceneForPremiumAd(originalScene);
-  const config = getComfyUIConfig();
+  const replicateConfig = getReplicateVisualConfig();
+  const comfyConfig = getComfyUIConfig();
+  const usedAssetPaths = options.usedAssetPaths;
 
   let lastError = "";
 
-  if (
-    config.enabled &&
-    (scene.visualMode === "ai_image_motion" ||
-      scene.visualMode === "ai_video")
-  ) {
-    for (let attempt = 1; attempt <= 3; attempt += 1) {
-      const retry = createRetryAttempt(scene, attempt, lastError);
-
-      const generated = await generateWithComfyUI(
+  for (const provider of providerOrder()) {
+    if (
+      provider === "replicate" &&
+      replicateConfig.enabled &&
+      (scene.visualMode === "ai_image_motion" ||
+        scene.visualMode === "ai_video")
+    ) {
+      const generated = await generateReplicateSceneVisual(
         {
           sceneId: scene.sceneId,
-          prompt: retry.prompt,
-          negativePrompt: retry.negativePrompt,
-          mode: scene.visualMode === "ai_video" ? "video" : "image",
-          seed: retry.seed || Date.now(),
-          width: 1280,
-          height: 720,
+          sceneIndex: options.sceneIndex ?? 0,
+          totalScenes: options.totalScenes ?? 1,
+          category: scene.category,
+          prompt: scene.visualPrompt,
+          negativePrompt: scene.negativePrompt,
+          fullScript: options.fullScript,
+          seed:
+            Math.abs(
+              [...scene.sceneId].reduce(
+                (total, character) =>
+                  total * 31 + character.charCodeAt(0),
+                17
+              )
+            ) + (options.sceneIndex ?? 0) * 1009,
           durationSeconds: scene.durationSeconds
         },
-        {
-          ...config,
-          maxRetries: 1
-        }
+        replicateConfig
       );
 
       if (generated.success && generated.outputPath) {
-        return {
-          sceneId: scene.sceneId,
-          success: true,
-          mode: scene.visualMode,
-          assetPath: generated.outputPath,
-          source: "comfyui",
-          attempts: attempt
-        };
-      }
+        const resolvedPath = path.resolve(
+          generated.outputPath
+        );
 
-      lastError = generated.error || "AI visual generation failed.";
+        if (
+          !usedAssetPaths ||
+          !usedAssetPaths.has(resolvedPath)
+        ) {
+          usedAssetPaths?.add(resolvedPath);
+
+          return {
+            sceneId: scene.sceneId,
+            success: true,
+            mode:
+              generated.kind === "video"
+                ? "ai_video"
+                : "ai_image_motion",
+            assetPath: resolvedPath,
+            source: "replicate",
+            attempts: generated.attempts
+          };
+        }
+
+        lastError =
+          "Replicate returned media already used by another scene.";
+      } else {
+        lastError =
+          generated.error ||
+          "Replicate visual generation failed.";
+      }
+    }
+
+    if (
+      provider === "comfyui" &&
+      comfyConfig.enabled &&
+      (scene.visualMode === "ai_image_motion" ||
+        scene.visualMode === "ai_video")
+    ) {
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        const retry = createRetryAttempt(
+          scene,
+          attempt,
+          lastError
+        );
+
+        const generated = await generateWithComfyUI(
+          {
+            sceneId: scene.sceneId,
+            prompt: retry.prompt,
+            negativePrompt: retry.negativePrompt,
+            mode:
+              scene.visualMode === "ai_video"
+                ? "video"
+                : "image",
+            seed: retry.seed || Date.now(),
+            width: 720,
+            height: 1280,
+            durationSeconds: scene.durationSeconds
+          },
+          {
+            ...comfyConfig,
+            maxRetries: 1
+          }
+        );
+
+        if (generated.success && generated.outputPath) {
+          const resolvedPath = path.resolve(
+            generated.outputPath
+          );
+
+          if (
+            !usedAssetPaths ||
+            !usedAssetPaths.has(resolvedPath)
+          ) {
+            usedAssetPaths?.add(resolvedPath);
+
+            return {
+              sceneId: scene.sceneId,
+              success: true,
+              mode: scene.visualMode,
+              assetPath: resolvedPath,
+              source: "comfyui",
+              attempts: attempt
+            };
+          }
+        }
+
+        lastError =
+          generated.error ||
+          "ComfyUI visual generation failed.";
+      }
     }
   }
 
-  const local = await findRealisticLocalFallback(scene);
-  const fallback = selectNoErrorFallback(
-    scene,
-    local.video,
-    local.image
-  );
+  if (
+    envBoolean(
+      process.env.ALLOW_LOCAL_VISUAL_FALLBACK,
+      false
+    )
+  ) {
+    const local = await findRealisticLocalFallback(
+      scene,
+      path.resolve("assets", "visual-library"),
+      usedAssetPaths
+    );
 
-  if (fallback.allowRender && fallback.assetPath) {
-    return {
-      sceneId: scene.sceneId,
-      success: true,
-      mode: fallback.mode,
-      assetPath: fallback.assetPath,
-      source:
-        fallback.mode === "local_video"
-          ? "local_video"
-          : "local_image",
-      attempts: config.enabled ? 3 : 0,
-      error: lastError || undefined
-    };
+    const fallback = selectNoErrorFallback(
+      scene,
+      local.video,
+      local.image
+    );
+
+    if (fallback.allowRender && fallback.assetPath) {
+      const resolvedPath = path.resolve(
+        fallback.assetPath
+      );
+
+      usedAssetPaths?.add(resolvedPath);
+
+      return {
+        sceneId: scene.sceneId,
+        success: true,
+        mode: fallback.mode,
+        assetPath: resolvedPath,
+        source:
+          fallback.mode === "local_video"
+            ? "local_video"
+            : "local_image",
+        attempts: 0,
+        error: lastError || undefined
+      };
+    }
   }
 
   if (scene.category === "brand_cta") {
@@ -189,22 +382,36 @@ export async function resolvePremiumSceneVisual(
   return {
     sceneId: scene.sceneId,
     success: false,
-    mode: fallback.mode,
+    mode: "ai_video",
     source: "none",
-    attempts: config.enabled ? 3 : 0,
+    attempts: Math.max(
+      replicateConfig.enabled
+        ? replicateConfig.maxAttempts
+        : 0,
+      comfyConfig.enabled ? 3 : 0
+    ),
     error:
       lastError ||
-      "No realistic AI output or local photographic fallback was available."
+      "No unique photorealistic generated video was available."
   };
 }
 
 export async function resolveAllPremiumVisuals(
-  scenes: SceneVisualPlan[]
+  scenes: SceneVisualPlan[],
+  fullScript = ""
 ): Promise<ResolvedSceneVisual[]> {
   const results: ResolvedSceneVisual[] = [];
+  const usedAssetPaths = new Set<string>();
 
-  for (const scene of scenes) {
-    results.push(await resolvePremiumSceneVisual(scene));
+  for (let index = 0; index < scenes.length; index += 1) {
+    results.push(
+      await resolvePremiumSceneVisual(scenes[index], {
+        sceneIndex: index,
+        totalScenes: scenes.length,
+        fullScript,
+        usedAssetPaths
+      })
+    );
   }
 
   return results;
