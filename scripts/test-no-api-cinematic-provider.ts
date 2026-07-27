@@ -11,7 +11,10 @@ const propertyQueries = buildNoApiQueryTiers({
   subject: "Victorian terraced house",
   environment: "British residential street",
   action: "planning inspection",
-  durationSeconds: 5
+  fullScript: undefined,
+  durationSeconds: 5,
+  usedSourceUrls: undefined,
+  usedImageHashes: undefined,
 });
 
 const financeQueries = buildNoApiQueryTiers({
@@ -22,7 +25,10 @@ const financeQueries = buildNoApiQueryTiers({
   subject: "quantity surveyor",
   environment: "professional office",
   action: "reviewing construction costs",
-  durationSeconds: 5
+  fullScript: undefined,
+  durationSeconds: 5,
+  usedSourceUrls: undefined,
+  usedImageHashes: undefined,
 });
 
 const constructionQueries = buildNoApiQueryTiers({
@@ -33,7 +39,10 @@ const constructionQueries = buildNoApiQueryTiers({
   subject: "site manager",
   environment: "active building site",
   action: "tracking structural progress",
-  durationSeconds: 5
+  fullScript: undefined,
+  durationSeconds: 5,
+  usedSourceUrls: undefined,
+  usedImageHashes: undefined,
 });
 
 const planningQueries = buildNoApiQueryTiers({
@@ -44,7 +53,10 @@ const planningQueries = buildNoApiQueryTiers({
   subject: "planning consultant",
   environment: "architectural studio",
   action: "reviewing council documents",
-  durationSeconds: 5
+  fullScript: undefined,
+  durationSeconds: 5,
+  usedSourceUrls: undefined,
+  usedImageHashes: undefined,
 });
 
 const lifestyleQueries = buildNoApiQueryTiers({
@@ -55,7 +67,10 @@ const lifestyleQueries = buildNoApiQueryTiers({
   subject: "family lifestyle",
   environment: "UK residential street",
   action: "enjoying a quality home",
-  durationSeconds: 5
+  fullScript: undefined,
+  durationSeconds: 5,
+  usedSourceUrls: undefined,
+  usedImageHashes: undefined,
 });
 
 if (propertyQueries.length < 4) {

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@openvideo/contracts": "workspace:*",
+    "@openvideo/creative-project": "workspace:*",
     "@openvideo/observability": "workspace:*",
     "@supabase/ssr": "^0.7.0",
     "@supabase/supabase-js": "^2.57.4",

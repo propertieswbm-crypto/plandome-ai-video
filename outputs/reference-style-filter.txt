@@ -1,0 +1,16 @@
+[0:v]split=2[f0][f7];
+[1:v]split=2[r1][r6];
+[2:v]split=2[i2][i8];
+[3:v]split=2[p3][p5];
+[f0]zoompan=z='min(zoom+0.0015,1.16)':x='iw/2-(iw/zoom/2)':y='ih*0.44-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=3.4,setpts=PTS-STARTPTS,setsar=1,drawbox=x=0:y=0:w=1080:h=1920:color=0x071a2d@0.16:t=fill[s0];
+[r1]zoompan=z='1.08':x='(iw-iw/zoom)*(on/163)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=5.433,setpts=PTS-STARTPTS,setsar=1[s1];
+[i2]zoompan=z='min(zoom+0.0012,1.13)':x='iw*0.42-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=3.6,setpts=PTS-STARTPTS,setsar=1[s2];
+[p3]zoompan=z='1.10':x='(iw-iw/zoom)*(1-on/135)':y='ih*0.52-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=4.5,setpts=PTS-STARTPTS,setsar=1,eq=contrast=1.07:saturation=0.92[s3];
+[4:v]zoompan=z='min(zoom+0.0016,1.18)':x='iw*0.68-(iw/zoom/2)':y='ih*0.48-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=3.633,setpts=PTS-STARTPTS,setsar=1,drawbox=x=0:y=0:w=1080:h=1920:color=0xd06b34@0.10:t=fill[s4];
+[p5]zoompan=z='min(zoom+0.0015,1.16)':x='iw*0.62-(iw/zoom/2)':y='ih*0.64-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=4.933,setpts=PTS-STARTPTS,setsar=1,drawbox=x=0:y=0:w=1080:h=1920:color=0x071a2d@0.12:t=fill[s5];
+[r6]zoompan=z='min(zoom+0.0020,1.18)':x='iw*0.52-(iw/zoom/2)':y='ih*0.58-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=1.633,setpts=PTS-STARTPTS,setsar=1[s6];
+[f7]zoompan=z='1.12':x='(iw-iw/zoom)*(on/58)':y='ih*0.46-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=1.933,setpts=PTS-STARTPTS,setsar=1,drawbox=x=0:y=0:w=1080:h=1920:color=0x071a2d@0.18:t=fill[s7];
+[i8]zoompan=z='min(zoom+0.0018,1.15)':x='iw*0.36-(iw/zoom/2)':y='ih*0.46-(ih/zoom/2)':d=1:s=1080x1920:fps=30,trim=duration=1.967,setpts=PTS-STARTPTS,setsar=1,drawbox=x=0:y=0:w=1080:h=1920:color=0x071a2d@0.48:t=fill[s8];
+[s0][s1][s2][s3][s4][s5][s6][s7][s8]concat=n=9:v=1:a=0,eq=contrast=1.04:saturation=0.98,unsharp=5:5:0.30[base];
+[6:v]scale=250:-1[logo];
+[base][logo]overlay=46:38,subtitles='outputs/reference-style-captions.ass'[vout]

@@ -1,0 +1,14 @@
+[0:v]split=6[v0][v2][v3][v5][v6][v7];
+[1:v]split=3[a1][a4][a8];
+[v0]zoompan=z='min(zoom+0.0014,1.16)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=102:s=1080x1920:fps=30,setsar=1[s0];
+[a1]zoompan=z='min(zoom+0.0008,1.10)':x='iw/2-(iw/zoom/2)+120*sin(on/65)':y='ih/2-(ih/zoom/2)':d=163:s=1080x1920:fps=30,setsar=1[s1];
+[v2]zoompan=z='1.10':x='(iw-iw/zoom)*(on/107)':y='ih/2-(ih/zoom/2)':d=108:s=1080x1920:fps=30,setsar=1[s2];
+[v3]zoompan=z='min(zoom+0.0012,1.18)':x='iw*0.53-(iw/zoom/2)':y='ih*0.47-(ih/zoom/2)':d=135:s=1080x1920:fps=30,setsar=1[s3];
+[a4]zoompan=z='1.12':x='(iw-iw/zoom)*(1-on/108)':y='ih/2-(ih/zoom/2)':d=109:s=1080x1920:fps=30,setsar=1[s4];
+[v5]zoompan=z='min(zoom+0.0009,1.14)':x='iw*0.38-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=148:s=1080x1920:fps=30,setsar=1[s5];
+[v6]zoompan=z='min(zoom+0.0020,1.16)':x='iw*0.26-(iw/zoom/2)':y='ih*0.48-(ih/zoom/2)':d=49:s=1080x1920:fps=30,setsar=1[s6];
+[v7]zoompan=z='min(zoom+0.0018,1.15)':x='iw*0.70-(iw/zoom/2)':y='ih*0.48-(ih/zoom/2)':d=58:s=1080x1920:fps=30,setsar=1[s7];
+[a8]zoompan=z='min(zoom+0.0014,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=59:s=1080x1920:fps=30,setsar=1[s8];
+[s0][s1][s2][s3][s4][s5][s6][s7][s8]concat=n=9:v=1:a=0,eq=contrast=1.06:saturation=0.94:brightness=-0.015,unsharp=5:5:0.45[base];
+[2:v]scale=275:-1[logo];
+[base][logo]overlay=54:46,subtitles='outputs/victorian-architecture-captions.ass'[vout]

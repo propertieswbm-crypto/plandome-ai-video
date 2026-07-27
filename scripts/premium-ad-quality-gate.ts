@@ -10,6 +10,8 @@ export interface PremiumAdMediaReport {
   videoRatio: number;
   duplicateGroups: string[][];
   duplicateSourceUrlGroups: string[][];
+  fallbackScenes: number[];
+  photographicSceneCount: number;
   failures: string[];
 }
 
@@ -62,8 +64,13 @@ export async function inspectPremiumAdMedia(
   >();
 
   let videoSceneCount = 0;
+  let photographicSceneCount = 0;
+  const fallbackScenes: number[] = [];
 
   for (const { scene, index } of mediaScenes) {
+    const attribution = attributions[index] || {};
+    if (attribution.fallback === true || attribution.mediaClass === "procedural_fallback") fallbackScenes.push(index + 1);
+    else photographicSceneCount += 1;
     const asset = scene.videoAsset || scene.visualAsset;
 
     if (!asset) {
@@ -170,6 +177,8 @@ export async function inspectPremiumAdMedia(
     videoRatio,
     duplicateGroups,
     duplicateSourceUrlGroups,
+    fallbackScenes,
+    photographicSceneCount,
     failures
   };
 }

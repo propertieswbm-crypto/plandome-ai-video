@@ -9,11 +9,13 @@
  * All installed in package.json but never used — now fully leveraged.
  */
 
-import { copyFile, readFile, writeFile, mkdir } from "node:fs/promises";
+import { copyFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import type { DesignProfile, VisualBrief } from "./video-quality";
 import { renderPremiumScene, selectRendererKind, type SceneRendererKind } from "./premium-scene-renderers";
-import { generateVisualIdentity, type VisualIdentity, type SceneVariation, variationCssClasses } from "./premium-visual-variety";
+import { generateVisualIdentity, type VisualIdentity, variationCssClasses } from "./premium-visual-variety";
+import { assignTemplateFeatures, templateFeatureLibrary } from "./remotion-feature-library";
+import { buildDesignDNA, composeSceneComponents, reviewCreative } from "./design-dna";
 
 export type MotionVisual =
     | "victorian-rear-extension"
@@ -41,10 +43,15 @@ export type PlannedScene = {
     duration: number;
     kind: "avatar" | "property" | "planning" | "risk" | "cost" | "pack" | "cta";
     brief: VisualBrief;
+    captionWords?: Array<{ text: string; start: number; end: number }>;
 };
 
 const escapeHtml = (value: string) =>
-    value.replace(/&/g, "&amp;").replace(/</g, "<").replace(/>/g, ">").replace(/"/g, """);
+    value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
 
 const js = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
 
@@ -68,6 +75,11 @@ export async function writePremiumComposition(
 ): Promise<void> {
     const seed = varietySeed || design.generationId;
     const visualIdentity = createCompositionIdentity(seed, scenes.length);
+    const featureAssignments = assignTemplateFeatures(seed, scenes);
+    const designDNA = buildDesignDNA(seed);
+    const sceneComponents = composeSceneComponents(seed, scenes.length);
+    const creativeReview = reviewCreative(sceneComponents);
+    if (!creativeReview.passed) throw new Error(`Creative review failed: ${creativeReview.failures.join(" ")}`);
 
     // Validate required media
     const missingRealMedia = scenes
@@ -87,44 +99,34 @@ export async function writePremiumComposition(
         );
     }
 
-    // Copy GSAP locally if available
-    let gsapScript = '<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>';
-    try {
-        await copyFile(
-            path.join(import.meta.dirname, "vendor/gsap.min.js"),
-            path.join(directory, "gsap.min.js")
-        );
-        gsapScript = '<script src="gsap.min.js"></script>';
-    } catch {
-        /* CDN fallback */
-    }
-
-    // Copy SplitType locally if available
-    let splitTypeScript = '<script src="https://cdn.jsdelivr.net/npm/split-type@0.3.4/umd/index.js"></script>';
-    try {
-        await copyFile(
-            path.join(import.meta.dirname, "vendor/split-type.umd.js"),
-            path.join(directory, "split-type.umd.js")
-        );
-        splitTypeScript = '<script src="split-type.umd.js"></script>';
-    } catch {
-        /* CDN fallback */
-    }
-
-    // Copy Motion (motion.dev) locally if available
-    let motionScript = '<script src="https://cdn.jsdelivr.net/npm/motion@12.42.2/dist/motion.js"></script>';
-    try {
-        await copyFile(
-            path.join(import.meta.dirname, "vendor/motion.js"),
-            path.join(directory, "motion.js")
-        );
-        motionScript = '<script src="motion.js"></script>';
-    } catch {
-        /* CDN fallback */
-    }
+    const root = path.resolve(import.meta.dirname, "..");
+    await copyFile(path.join(root, "node_modules/gsap/dist/gsap.min.js"), path.join(directory, "gsap.min.js"));
+    await copyFile(path.join(root, "node_modules/split-type/umd/index.min.js"), path.join(directory, "split-type.min.js"));
+    await copyFile(path.join(root, "node_modules/motion/dist/motion.js"), path.join(directory, "motion.js"));
+    const gsapScript = '<script src="gsap.min.js"></script>';
+    const splitTypeScript = '<script src="split-type.min.js"></script>';
+    const motionScript = '<script src="motion.js"></script>';
 
     const styleVariant = design.templateIndex ?? 0;
+    visualIdentity.globalStyle.palette = {
+        paper: design.palette.paper,
+        ink: design.palette.ink,
+        accent: design.palette.accent,
+        secondary: design.palette.secondary,
+        overlay: design.palette.ink,
+    };
+    visualIdentity.globalStyle.fontPair.heading = design.fonts.heading;
+    visualIdentity.globalStyle.fontPair.body = design.fonts.body;
     const palette = visualIdentity.globalStyle.palette;
+    const learned = design.editorPreferences;
+    const captionScale = Math.min(1.5, Math.max(0.7, learned?.captionScale ?? 1));
+    const overlayAlpha = Math.round(Math.min(1, Math.max(0.25, learned?.overlayOpacity ?? .96)) * 255).toString(16).padStart(2, "0");
+    const logoScale = Math.min(1.5, Math.max(0.7, learned?.logoScale ?? 1));
+    const logoPosition = learned?.logoPosition ?? "top-left";
+    const logoLeft = logoPosition.endsWith("right") ? "auto" : "54px";
+    const logoRight = logoPosition.endsWith("right") ? "54px" : "auto";
+    const logoTop = logoPosition.startsWith("bottom") ? "auto" : "42px";
+    const logoBottom = logoPosition.startsWith("bottom") ? "42px" : "auto";
 
     // ─── Build scene HTML ───────────────────────────────────────
 
@@ -132,14 +134,19 @@ export async function writePremiumComposition(
         .map((scene, index) => {
             const variation = visualIdentity.sceneVariations[index]!;
             const cssClasses = variationCssClasses(variation, visualIdentity.globalStyle).join(" ");
-            const words = scene.headline
-                .split(/\s+/)
-                .map((word) => `<span class="word">${escapeHtml(word)}</span>`)
-                .join(" ");
-            const amount =
-                scene.text.match(
-                    /[£$€]\s?[\d,.]+(?:\s*[–-]\s*[£$€]?\s?[\d,.]+)?(?:k|m)?/i
-                )?.[0] ?? "AVOIDABLE COST";
+            const words = escapeHtml(scene.headline);
+            const features = featureAssignments[index]!;
+            const components = sceneComponents[index]!;
+            const featureClasses = features.map((feature) => `feature-${feature}`).join(" ");
+            const featureAccents = `
+                <div class="template-accents" aria-hidden="true">
+                    <span class="accent-card accent-card-a"></span>
+                    <span class="accent-card accent-card-b"></span>
+                    <span class="accent-rule"></span>
+                    <span class="accent-counter">${String(index + 1).padStart(2, "0")} / ${String(scenes.length).padStart(2, "0")}</span>
+                </div>`;
+            // extract monetary amounts if present (not used currently)
+            // const amount = scene.text.match(/[£$€]\s?[\d,.]+(?:\s*[–-]\s*[£$€]?\s?[\d,.]+)?(?:k|m)?/i)?.[0] ?? "AVOIDABLE COST";
 
             // Decision Pack HTML
             const pack = `
@@ -159,13 +166,10 @@ export async function writePremiumComposition(
 
             if (scene.kind === "pack") {
                 visual = pack;
+            } else if (scene.kind === "cta") {
+                visual = `<div class="cta-action">BOOK YOUR PLANNING REVIEW <span>→</span></div>`;
             } else if (scene.videoAsset) {
-                visual = `
-                    <div class="premium-visual video-container has-video" data-scene-index="${index}">
-                        <video class="broll-video" src="assets/${escapeHtml(scene.videoAsset)}" muted playsinline loop preload="auto" poster=""></video>
-                        <div class="video-overlay-gradient"></div>
-                        <div class="video-label"><b>UK VICTORIAN CONTEXT</b><span>0${index + 1}</span></div>
-                    </div>`;
+                visual = `<div class="video-label"><b>UK PROPERTY CONTEXT</b><span>0${index + 1}</span></div>`;
             } else if (scene.visualAsset) {
                 visual = `
                     <div class="premium-visual image-container" data-scene-index="${index}">
@@ -204,67 +208,70 @@ export async function writePremiumComposition(
             return `
                 <section
                     id="scene-${index}"
-                    class="scene clip kind-${scene.kind} ${cssClasses} ${scene.videoAsset ? "has-video" : ""}"
+                    class="scene clip kind-${scene.kind} ${cssClasses} ${featureClasses} ${scene.videoAsset ? "has-video" : ""}"
                     data-start="${scene.start}"
                     data-duration="${scene.duration}"
-                    data-track-index="${100 + index}"
+                    data-track-index="2"
                     data-layout="${variation.layout}"
                     data-camera="${variation.cameraMovement}"
                     data-transition="${variation.transitionIn}"
                     data-subtitle="${variation.subtitleAnimation}"
+                    data-components="${components.join(",")}"
                 >
                     <div class="grid grid-${visualIdentity.globalStyle.gridStyle}"></div>
+                    ${featureAccents}
                     <div class="scene-content" style="text-align:${visualIdentity.typography.textAlign}">
                         <p class="eyebrow">PLANDOME / UK PROJECT CHECK</p>
-                        ${scene.kind === "pack" ? "" : `<h2>${words}</h2>`}
                         ${visual}
                     </div>
+                    ${scene.kind === "pack" ? "" : `<div class="static-headline">${words}</div>`}
+                    ${scene.captionWords?.length ? "" : `<div class="inline-caption">${escapeHtml(scene.text)}</div>`}
                 </section>`;
         })
         .join("\n");
 
     // ─── Video clips ──────────────────────────────────────────
 
-    const videoClips = scenes
-        .map(
-            (scene, index) =>
-                scene.videoAsset
-                    ? `<video id="broll-${index}" class="broll clip" src="assets/${escapeHtml(scene.videoAsset)}" muted playsinline loop preload="auto" data-start="${scene.start}" data-duration="${scene.duration}" data-track-index="${12 + index}"></video>`
-                    : ""
-        )
-        .join("\n");
-
     // ─── Captions with SplitType support ──────────────────────
 
-    const captions = scenes
-        .map(
-            (scene, index) => `
-                <div
-                    id="caption-${index}"
-                    class="caption clip split-caption"
-                    data-start="${scene.start}"
-                    data-duration="${scene.duration}"
-                    data-track-index="${20 + index}"
-                    data-sub-anim="${visualIdentity.sceneVariations[index]?.subtitleAnimation ?? "fade_up"}"
-                >
-                    <span id="caption-content-${index}" class="caption-content">${escapeHtml(scene.text)}</span>
-                </div>`
-        )
-        .join("\n");
+    const videoClips = scenes.map((scene, index) =>
+        scene.videoAsset
+            ? `<video id="broll-${index}" class="broll clip" src="assets/${escapeHtml(scene.videoAsset)}" muted playsinline loop preload="auto" data-start="${scene.start}" data-duration="${scene.duration}" data-track-index="${12 + index}"></video>`
+            : ""
+    ).join("\n");
+
+    // Captions live inside their owning scene. Hyperframes can then guarantee
+    // that only the active scene's text is present in a rendered frame.
+    let captionIndex = 0;
+    const captions = scenes.flatMap((scene) => {
+        const words = scene.captionWords ?? [];
+        return Array.from({ length: Math.ceil(words.length / 6) }, (_, phraseIndex) => {
+            const phrase = words.slice(phraseIndex * 6, phraseIndex * 6 + 6);
+            const first = phrase[0]!;
+            const last = phrase.at(-1)!;
+            const phraseDuration = Math.max(.35, last.end - first.start);
+            const html = phrase.map((item, index) => index === 0
+                ? `<strong>${escapeHtml(item.text)}</strong>`
+                : `<span>${escapeHtml(item.text)}</span>`).join(" ");
+            const id = captionIndex++;
+            return `<div id="caption-phrase-${id}" class="karaoke-word clip" data-start="${first.start}" data-duration="${phraseDuration}" data-track-index="${100 + id}"><div>${html}</div></div>`;
+        });
+    }).join("\n");
 
     // ─── Transitions ──────────────────────────────────────────
 
-    const transitions = scenes
+    const transitions = duration > 75 ? "" : scenes
         .slice(1)
         .map((scene, index) => {
             const transProfile = visualIdentity.transitions[index];
             const transDir = transProfile?.direction ?? "left";
+            const transitionDuration = Math.min(0.7, Math.max(0.2, transProfile?.duration ?? 0.28));
             return `
                 <div
                     id="transition-${index}"
                     class="transition clip transition-${visualIdentity.sceneVariations[index]?.transitionIn ?? "page_wipe"}"
-                    data-start="${Math.max(0, scene.start - (transProfile?.duration ?? 0.25))}"
-                    data-duration="${transProfile?.duration ?? 0.28}"
+                    data-start="${Math.max(0, scene.start - transitionDuration)}"
+                    data-duration="${transitionDuration}"
                     data-track-index="${40 + index}"
                     data-direction="${transDir}"
                 >
@@ -279,16 +286,8 @@ export async function writePremiumComposition(
         .map((scene, index) => {
             const t = scene.start + 0.12;
             const variation = visualIdentity.sceneVariations[index]!;
-            const motion = visualIdentity.motionSystem;
-
+            const features = featureAssignments[index]!;
             // Entrance animation based on type
-            const entranceKeyframes = getEntranceKeyframes(
-                motion.entranceType,
-                motion.entranceDuration,
-                motion.entranceStagger,
-                motion.entranceEase
-            );
-
             // Camera movement
             const cameraKeyframes = getCameraKeyframes(
                 variation.cameraMovement,
@@ -304,23 +303,27 @@ export async function writePremiumComposition(
                       .from("#scene-${index} .decision-pack", { opacity: 0, y: 180, scale: 0.7, rotationY: -42, rotationX: 12, duration: 0.9, ease: "expo.out" }, ${t + 0.2});`;
             }
 
+            const featureMotion = `
+                  .from("#scene-${index} .accent-card-a", { opacity: 0, x: -90, rotation: -9, duration: .55, ease: "back.out(1.4)" }, ${t + .18})
+                  .from("#scene-${index} .accent-card-b", { opacity: 0, x: 90, rotation: 7, duration: .55, ease: "back.out(1.4)" }, ${t + .24})
+                  .from("#scene-${index} .accent-rule", { scaleX: 0, transformOrigin: "left", duration: .65, ease: "expo.out" }, ${t + .28})`;
             return `
                 tl.from("#scene-${index} .eyebrow", { opacity: 0, x: -55, duration: 0.38, ease: "power3.out" }, ${t})
-                  .from("#scene-${index} .word", { ${entranceKeyframes.from}, duration: ${entranceKeyframes.duration}, stagger: ${entranceKeyframes.stagger}, ease: "${entranceKeyframes.ease}" }, ${t + 0.08})
-                  .from("#scene-${index} .scene-content > :last-child", { opacity: 0, x: ${index % 2 ? 70 : -70}, duration: 0.65, ease: "back.out(1.2)" }, ${t + 0.38})
+                  .from("#scene-${index} .premium-visual, #scene-${index} .cta-action", { opacity: 0, x: ${index % 2 ? 70 : -70}, duration: 0.65, ease: "back.out(1.2)" }, ${t + 0.38})
                   .fromTo("#scene-${index} .scene-visual", ${cameraKeyframes.from}, ${cameraKeyframes.to}, ${scene.start})
-                  .from("#scene-${index} .grid", { opacity: 0, duration: 0.4, ease: "power2.out" }, ${t + 0.05});`;
+                  .from("#scene-${index} .grid", { opacity: 0, duration: 0.4, ease: "power2.out" }, ${t + 0.05})
+                  ${features.length ? featureMotion : ""};`;
         })
         .join("\n");
 
     // ─── Transition animations ─────────────────────────────────
 
-    const transitionAnimations = scenes
+    const transitionAnimations = duration > 75 ? "" : scenes
         .slice(1)
         .map((scene, index) => {
             const transProfile = visualIdentity.transitions[index];
             const transitionType = visualIdentity.sceneVariations[index]?.transitionIn ?? "page_wipe";
-            const dur = transProfile?.duration ?? 0.28;
+            const dur = Math.min(0.7, Math.max(0.2, transProfile?.duration ?? 0.28));
             const start = scene.start - dur;
 
             let anim;
@@ -348,7 +351,7 @@ export async function writePremiumComposition(
                     break;
                 case "color_dip":
                     anim = `
-                        tl.fromTo("#transition-${index}", { opacity: 0, background: visualIdentity.colorGrade.highlights }, { opacity: 0.9, background: "${palette.accent}", duration: ${dur * 0.3}, ease: "power1.out" }, ${start})
+                        tl.fromTo("#transition-${index}", { opacity: 0, background: "${visualIdentity.colorGrade.highlights}" }, { opacity: 0.9, background: "${palette.accent}", duration: ${dur * 0.3}, ease: "power1.out" }, ${start})
                           .to("#transition-${index}", { opacity: 0, scale: 0.95, duration: ${dur * 0.4}, ease: "power1.in" }, ${scene.start});`;
                     break;
                 default:
@@ -362,42 +365,7 @@ export async function writePremiumComposition(
 
     // ─── Caption animations with SplitType ────────────────────
 
-    const captionAnimations = scenes
-        .map((scene, index) => {
-            const subAnim = visualIdentity.sceneVariations[index]?.subtitleAnimation ?? "fade_up";
-            const capStart = scene.start + 0.08;
-            const capEnd = Math.max(scene.start + 0.2, scene.start + scene.duration - 0.12);
-
-            let anim;
-            switch (subAnim) {
-                case "word_reveal":
-                    anim = `
-                        tl.from("#caption-content-${index}", { opacity: 0, y: 20, duration: 0.15, ease: "power3.out" }, ${capStart})
-                          .to("#caption-content-${index}", { opacity: 0, y: -10, duration: 0.1 }, ${capEnd})
-                          .set("#caption-content-${index}", { opacity: 0 }, ${scene.start + scene.duration});`;
-                    break;
-                case "character_stagger":
-                    anim = `
-                        tl.from("#caption-${index}", { opacity: 0, duration: 0.05 }, ${capStart})
-                          .from("#caption-content-${index}", { opacity: 0, scale: 0.95, duration: 0.25, ease: "power2.out" }, ${capStart + 0.05})
-                          .to("#caption-${index}", { opacity: 0, duration: 0.08 }, ${capEnd})
-                          .set("#caption-${index}", { opacity: 0 }, ${scene.start + scene.duration});`;
-                    break;
-                case "typewriter":
-                    anim = `
-                        tl.from("#caption-${index}", { opacity: 1, duration: 0.01 }, ${capStart})
-                          .to("#caption-content-${index}", { width: "100%", duration: Math.max(0.5, scene.duration - 0.3), ease: "steps(" + scene.text.length + ")" }, ${capStart + 0.1})
-                          .to("#caption-${index}", { opacity: 0, duration: 0.08 }, ${capEnd});`;
-                    break;
-                default:
-                    anim = `
-                        tl.from("#caption-content-${index}", { opacity: 0, y: 30, duration: 0.18, ease: "power3.out" }, ${capStart})
-                          .to("#caption-content-${index}", { opacity: 0, duration: 0.12 }, ${capEnd})
-                          .set("#caption-content-${index}", { opacity: 0 }, ${scene.start + scene.duration});`;
-            }
-            return anim;
-        })
-        .join("\n");
+    const captionAnimations = "";
 
     // ─── Intro/Outro animations ────────────────────────────────
 
@@ -429,6 +397,8 @@ export async function writePremiumComposition(
     <meta name="viewport" content="width=1080">
     <title>Plandome Premium Video — ${design.template}</title>
     <style>
+        @font-face { font-family: "${visualIdentity.globalStyle.fontPair.heading}"; src: local("${visualIdentity.globalStyle.fontPair.heading}"); font-weight: 100 900; }
+        @font-face { font-family: "${visualIdentity.globalStyle.fontPair.body}"; src: local("${visualIdentity.globalStyle.fontPair.body}"); font-weight: 100 900; }
         /* ─── Reset & Base ─── */
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { margin: 0; overflow: hidden; font-family: "${visualIdentity.globalStyle.fontPair.body}", sans-serif; }
@@ -445,9 +415,11 @@ export async function writePremiumComposition(
         .brand-bug {
             position: absolute;
             z-index: 90;
-            left: 54px;
-            top: 42px;
-            width: 290px;
+            left: ${logoLeft};
+            right: ${logoRight};
+            top: ${logoTop};
+            bottom: ${logoBottom};
+            width: ${Math.round(290 * logoScale)}px;
             padding: 12px 16px;
             background: rgba(255, 253, 248, 0.9);
             box-shadow: 8px 8px 0 ${palette.accent};
@@ -455,12 +427,31 @@ export async function writePremiumComposition(
 
         /* ─── Scene base ─── */
         .scene { position: absolute; inset: 0; overflow: hidden; background-color: ${palette.paper}; }
+        .template-accents { position:absolute; inset:0; z-index:3; pointer-events:none; }
+        .accent-card { display:none; position:absolute; width:320px; height:420px; border:10px solid ${palette.secondary}; background:${palette.paper}; box-shadow:18px 22px 48px #0004; }
+        .accent-card-a { left:58px; top:350px; transform:rotate(-5deg); }
+        .accent-card-b { right:42px; top:430px; transform:rotate(6deg); }
+        .accent-rule { display:none; position:absolute; left:70px; right:70px; top:132px; height:5px; background:${palette.accent}; }
+        .accent-counter { display:none; position:absolute; right:62px; top:142px; font:800 18px/1 monospace; letter-spacing:.12em; color:${palette.accent}; }
+        .feature-photo-stack .accent-card, .feature-polaroid .accent-card { display:block; opacity:.7; }
+        .feature-photo-stack .premium-visual, .feature-polaroid .premium-visual { transform:rotate(-1.5deg); box-shadow:24px 30px 0 ${palette.accent}, 42px 52px 0 ${palette.secondary}; }
+        .feature-polaroid .premium-visual { border-width:22px; border-bottom-width:92px; }
+        .feature-split-screen .premium-visual { width:53%; align-self:flex-end; clip-path:polygon(8% 0,100% 0,100% 100%,0 100%); }
+        .feature-split-screen .static-headline { width:58%; right:auto; background:${palette.ink}; }
+        .feature-lower-third .inline-caption { left:56px; right:250px; justify-content:flex-start; text-align:left; border-left:8px solid ${palette.accent}; border-radius:0 16px 16px 0; }
+        .feature-kinetic-type .static-headline { font-size:96px; letter-spacing:-.065em; text-transform:uppercase; }
+        .feature-cinematic-mask .premium-visual { clip-path:polygon(0 6%,94% 0,100% 92%,7% 100%); border:0; }
+        .feature-floating-cards .accent-card { display:block; width:230px; height:150px; border:2px solid #fff8; background:${palette.ink}DD; backdrop-filter:blur(18px); }
+        .feature-media-frame .premium-visual { border:3px solid ${palette.accent}; outline:18px solid ${palette.paper}; outline-offset:-36px; }
+        .feature-number-counter .accent-counter, .feature-progress-rail .accent-rule { display:block; }
+        .feature-light-leak:after { content:""; position:absolute; inset:-20%; z-index:8; pointer-events:none; background:radial-gradient(circle at 10% 30%,${palette.accent}88,transparent 32%); mix-blend-mode:screen; opacity:.55; }
+        .feature-brand-outro .brand-bug { transform:scale(1.12); }
         .scene-content {
             position: relative;
             z-index: 4;
             width: 100%;
             height: 100%;
-            padding: 135px 68px 210px;
+            padding: 150px 72px 250px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -528,8 +519,35 @@ export async function writePremiumComposition(
             text-transform: ${visualIdentity.typography.textTransform};
             letter-spacing: ${visualIdentity.typography.letterSpacing}em;
             font-weight: ${visualIdentity.globalStyle.fontPair.headingWeight};
+            overflow-wrap: normal;
+            word-break: normal;
         }
-        .word { display: inline-block; }
+        /*
+         * Hyperframes owns clip visibility and timing. Keep the semantic text
+         * visible even when a browser snapshot is taken before GSAP has sought
+         * the shared timeline; movement is applied to the containing blocks.
+         */
+        .word { display: inline-block; opacity: 1 !important; visibility: visible !important; transform: none !important; }
+        .static-headline {
+            position: absolute;
+            z-index: 12;
+            left: 62px;
+            bottom: 292px;
+            width: 920px;
+            box-sizing: border-box;
+            padding: 24px 28px 27px;
+            background: linear-gradient(110deg, rgba(7,26,45,0.96), rgba(7,26,45,0.76));
+            color: #fff;
+            border-left: 9px solid ${palette.accent};
+            border-radius: 0 20px 20px 0;
+            font-family: "${visualIdentity.globalStyle.fontPair.heading}", Georgia, serif;
+            font-size: 76px;
+            font-weight: ${visualIdentity.globalStyle.fontPair.headingWeight};
+            line-height: .98;
+            letter-spacing: -.025em;
+            overflow-wrap: normal;
+            word-break: normal;
+        }
 
         /* ─── Visual containers ─── */
         .premium-visual {
@@ -570,6 +588,7 @@ export async function writePremiumComposition(
             height: 100%;
             object-fit: cover;
         }
+        .broll { position: absolute; inset: 0; width: 1080px; height: 1920px; object-fit: cover; z-index: 1; }
         .video-overlay-gradient {
             position: absolute;
             inset: 0;
@@ -607,18 +626,28 @@ export async function writePremiumComposition(
         .layout-luxury_frame h2 { font-family: Georgia, serif; letter-spacing: -0.02em; text-transform: none; }
 
         /* ─── Has video styles ─── */
-        .has-video { background: #071a2d !important; color: #fff !important; }
+        /* Video clips are separate HyperFrames tracks beneath each semantic
+           scene. Keep the scene layer transparent so it supplies typography
+           and overlays without covering the footage. */
+        .has-video { background: transparent !important; color: #fff !important; }
         .has-video .grid { display: none !important; }
-        .has-video .scene-content { justify-content: flex-end !important; align-items: flex-start !important; gap: 18px !important; padding: 120px 62px 240px !important; }
+        .has-video .scene-content { display: flex !important; grid-template-columns: none !important; justify-content: flex-end !important; align-items: flex-start !important; gap: 18px !important; padding: 120px 62px 240px !important; }
         .has-video .eyebrow { margin: 0 !important; padding: 10px 15px !important; background: rgba(7,26,45,0.82) !important; color: #fff !important; border-left: 6px solid ${palette.accent} !important; border-radius: 3px !important; backdrop-filter: blur(12px) !important; font-size: 17px !important; }
-        .has-video h2 { width: auto !important; max-width: 920px !important; margin: 0 !important; padding: 24px 28px 27px !important; background: linear-gradient(110deg, rgba(7,26,45,0.95), rgba(7,26,45,0.68)) !important; color: #fff !important; border-left: 9px solid ${palette.accent} !important; border-radius: 0 20px 20px 0 !important; backdrop-filter: blur(14px) !important; }
+        .has-video h2 { display: block !important; flex: 0 0 auto !important; width: 920px !important; box-sizing: border-box !important; height: auto !important; min-height: 0 !important; max-height: 520px !important; margin: 0 !important; padding: 24px 28px 27px !important; background: linear-gradient(110deg, rgba(7,26,45,0.95), rgba(7,26,45,0.68)) !important; color: #fff !important; border-left: 9px solid ${palette.accent} !important; border-radius: 0 20px 20px 0 !important; backdrop-filter: blur(14px) !important; font-size: 76px !important; line-height: .98 !important; opacity: 1 !important; transform: none !important; overflow-wrap: normal !important; word-break: normal !important; }
+        .video-label { display: flex; gap: 14px; align-items: center; padding: 9px 13px; background: rgba(7,26,45,.82); color: #fff; font-size: 15px; letter-spacing: .08em; }
+        .video-label span { color: ${palette.accent}; font-weight: 900; }
 
         /* ─── Scene kind styles ─── */
         .kind-pack { background: ${palette.accent}; }
         .kind-pack .scene-content { align-items: center; }
         .kind-pack .eyebrow { color: ${palette.ink}; }
-        .kind-cta { background: ${palette.accent}; }
-        .kind-cta .scene-content { align-items: flex-start; }
+        .kind-cta { background: ${palette.ink}; color: ${palette.paper}; }
+        .kind-cta .grid { opacity: .12; }
+        .kind-cta .scene-content { display: flex !important; align-items: flex-start; justify-content: center; padding: 190px 82px 260px; }
+        .kind-cta h2 { max-width: 880px; padding: 32px 36px; background: ${palette.paper}; color: ${palette.ink}; border-left: 12px solid ${palette.accent}; font-size: clamp(64px, 8vw, 88px); line-height: .94; }
+        .kind-cta .static-headline { bottom: 760px; background: ${palette.paper}; color: ${palette.ink}; border-radius: 0; font-size: 78px; }
+        .cta-action { margin-top: 18px; padding: 24px 30px; background: ${palette.accent}; color: ${palette.ink}; font-size: 25px; font-weight: 900; letter-spacing: .04em; box-shadow: 10px 10px 0 rgba(255,255,255,.16); }
+        .cta-action span { margin-left: 18px; font-size: 34px; }
 
         /* ─── Pack stage ─── */
         .pack-stage { position: relative; width: 820px; height: 1050px; perspective: 1200px; }
@@ -637,11 +666,11 @@ export async function writePremiumComposition(
         .caption {
             position: absolute;
             z-index: 70;
-            left: 55px;
-            right: 55px;
-            bottom: 70px;
+            left: 72px;
+            right: 72px;
+            bottom: 78px;
             min-height: 96px;
-            padding: 20px 28px;
+            padding: 18px 26px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -649,12 +678,64 @@ export async function writePremiumComposition(
             background: ${palette.ink}F5;
             color: ${palette.paper};
             font-family: "${visualIdentity.globalStyle.fontPair.heading}", sans-serif;
-            font-size: ${visualIdentity.typography.bodySize}px;
-            line-height: 1.02;
-            text-transform: uppercase;
+            font-size: ${Math.min(32, visualIdentity.typography.bodySize)}px;
+            line-height: 1.16;
+            text-transform: none;
             letter-spacing: -0.01em;
+            max-height: 150px;
+            overflow: hidden;
         }
-        .caption-content { display: block; }
+        .caption-content { display: block; visibility: visible !important; }
+        .inline-caption {
+            position: absolute;
+            z-index: 70;
+            left: 72px;
+            right: 72px;
+            bottom: 78px;
+            min-height: 96px;
+            padding: 18px 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            text-align: center;
+            background: ${palette.ink}${overlayAlpha};
+            color: ${palette.paper};
+            font-family: "${visualIdentity.globalStyle.fontPair.heading}", sans-serif;
+            font-size: ${Math.round(Math.min(32, visualIdentity.typography.bodySize) * captionScale)}px;
+            line-height: 1.16;
+            text-transform: none;
+            letter-spacing: -0.01em;
+            max-height: 150px;
+            overflow: hidden;
+        }
+        .karaoke-word {
+            position:absolute;
+            z-index:75;
+            left:70px;
+            right:70px;
+            bottom:76px;
+            min-height:118px;
+            padding:20px 28px;
+            display:grid;
+            place-items:center;
+            color:${palette.paper};
+            background:${palette.ink}${overlayAlpha};
+            border-left:9px solid ${palette.accent};
+            border-radius:0 18px 18px 0;
+            font-family:"${visualIdentity.globalStyle.fontPair.heading}",sans-serif;
+            font-size:${Math.round(43 * captionScale)}px;
+            font-weight:900;
+            line-height:1;
+            text-align:center;
+            text-transform:uppercase;
+            letter-spacing:-.035em;
+            overflow:hidden;
+        }
+        .karaoke-word div { display:flex; flex-wrap:wrap; justify-content:center; gap:.22em; }
+        .karaoke-word span { color:${palette.paper}B5; font-weight:650; }
+        .karaoke-word strong { color:${palette.paper}; background:${palette.accent}; padding:.06em .16em; border-radius:.12em; animation:word-pop .2s cubic-bezier(.2,.9,.25,1.2) both; }
+        @keyframes word-pop { from { opacity:.35; transform:translateY(10px) scale(.9); } to { opacity:1; transform:none; } }
 
         /* ─── Transitions ─── */
         .transition {
@@ -696,8 +777,8 @@ export async function writePremiumComposition(
     >
         <img class="brand-bug" src="assets/logo.png" alt="Plandome">
         ${avatarClip}
-        ${sceneHtml}
         ${videoClips}
+        ${sceneHtml}
         ${captions}
         ${transitions}
     </main>
@@ -728,6 +809,10 @@ export async function writePremiumComposition(
         window.__timelines["plandome-premium-ad"] = tl;
         window.__videoPlan = ${js(scenes)};
         window.__visualIdentity = ${js(visualIdentity)};
+        window.__templateFeatures = ${js({ library: templateFeatureLibrary, scenes: featureAssignments })};
+        window.__designDNA = ${js(designDNA)};
+        window.__sceneComponents = ${js(sceneComponents)};
+        window.__creativeReview = ${js(creativeReview)};
 
         // ─── SplitType integration (if available) ───
         if (typeof SplitType !== "undefined") {
@@ -755,7 +840,7 @@ export async function writePremiumComposition(
     await writeFile(path.join(directory, "index.html"), html);
     await writeFile(
         path.join(directory, "DESIGN.md"),
-        `# Plandome Premium Video\n\nTemplate: ${design.template}\nGeneration: ${design.generationId}\nVisual Identity: ${visualIdentity.fingerprint}\nPalette: ${palette.paper}, ${palette.ink}, ${palette.accent}, ${visualIdentity.globalStyle.palette.secondary}\nTypography: ${visualIdentity.globalStyle.fontPair.heading} / ${visualIdentity.globalStyle.fontPair.body}\nGrid: ${visualIdentity.globalStyle.gridStyle}\nBorder: ${visualIdentity.globalStyle.borderStyle}\nLayouts: ${visualIdentity.sceneVariations.map((v) => v.layout).join(", ")}\nCamera Moves: ${visualIdentity.sceneVariations.map((v) => v.cameraMovement).join(", ")}\nTransitions: ${visualIdentity.transitions.map((t) => `${t.duration}s ${t.ease}`).join("; ")}\n`
+        `# Plandome Premium Video\n\nTemplate: ${design.template}\nGeneration: ${design.generationId}\nVisual Identity: ${visualIdentity.fingerprint}\nPalette: ${palette.paper}, ${palette.ink}, ${palette.accent}, ${visualIdentity.globalStyle.palette.secondary}\nTypography: ${visualIdentity.globalStyle.fontPair.heading} / ${visualIdentity.globalStyle.fontPair.body}\nGrid: ${visualIdentity.globalStyle.gridStyle}\nBorder: ${visualIdentity.globalStyle.borderStyle}\nLayouts: ${visualIdentity.sceneVariations.map((v) => v.layout).join(", ")}\nCamera Moves: ${visualIdentity.sceneVariations.map((v) => v.cameraMovement).join(", ")}\nTransitions: ${visualIdentity.transitions.map((t) => `${t.duration}s ${t.ease}`).join("; ")}\nTemplate features: ${templateFeatureLibrary.join(", ")}\n\n## Design DNA\n\n${Object.entries(designDNA).map(([key,value]) => `- ${key}: ${value}`).join("\n")}\n\n## Modular scene compositions\n\n${sceneComponents.map((components,index) => `${index + 1}. ${components.join(" + ")}`).join("\n")}\n\nCreative review: PASSED\n`
     );
 
     return;
@@ -763,6 +848,7 @@ export async function writePremiumComposition(
 
 // ─── Helper functions ────────────────────────────────────────
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function getEntranceKeyframes(
     type: string,
     duration: number,

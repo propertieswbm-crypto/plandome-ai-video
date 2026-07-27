@@ -1,0 +1,32 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: HookWhite,Arial,80,&H00FFFFFF,&H000000FF,&H00112235,&HE6112235,-1,0,0,0,100,100,-1,0,3,5,0,5,75,75,0,1
+Style: HookRed,Arial,86,&H003A45FF,&H000000FF,&H00112235,&HE6112235,-1,0,0,0,100,100,-1,0,3,5,0,5,75,75,0,1
+Style: TopRight,Arial,48,&H00FFFFFF,&H000000FF,&H00112235,&HE6112235,-1,0,0,0,100,100,1,0,3,4,0,9,300,62,250,1
+Style: MidLeft,Arial,49,&H00FFFFFF,&H000000FF,&H003A45FF,&HE63A45FF,-1,0,0,0,100,100,1,0,3,4,0,4,62,420,0,1
+Style: BottomCard,Arial,46,&H00FFFFFF,&H000000FF,&H00112235,&HE6112235,-1,0,0,0,100,100,0,0,3,4,0,1,62,92,150,1
+Style: CenterGold,Arial,68,&H00479AD3,&H000000FF,&H00112235,&HE6112235,-1,0,0,0,100,100,0,0,3,5,0,5,90,90,0,1
+Style: CTA,Arial,62,&H00FFFFFF,&H000000FF,&H00112235,&HE6112235,-1,0,0,0,100,100,0,0,3,5,0,5,90,90,0,1
+Style: Kicker,Arial,22,&H00479AD3,&H000000FF,&H00112235,&HE6112235,-1,0,0,0,100,100,4,0,3,2,0,7,54,54,150,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 4,0:00:00.00,0:00:03.41,Kicker,,0,0,0,,PLANDOME  /  PROPERTY PLANNING
+Dialogue: 5,0:00:00.15,0:00:01.65,HookWhite,,0,0,0,,PLANNING A HOME
+Dialogue: 6,0:00:01.05,0:00:03.41,HookRed,,0,0,0,,TRANSFORMATION?
+Dialogue: 4,0:00:03.41,0:00:08.85,TopRight,,0,0,0,,SEE THE\NWHOLE SITE
+Dialogue: 4,0:00:08.85,0:00:12.43,MidLeft,,0,0,0,,DESIGN IMPACT
+Dialogue: 5,0:00:09.35,0:00:12.43,BottomCard,,0,0,0,,VICTORIAN CHARACTER.\NMODERN AMBITION.
+Dialogue: 4,0:00:12.43,0:00:16.93,TopRight,,0,0,0,,A CLEAR\NPLANNING ROUTE
+Dialogue: 4,0:00:16.93,0:00:20.57,BottomCard,,0,0,0,,LOCAL INSIGHT.\NTHOUGHTFUL DESIGN.
+Dialogue: 4,0:00:20.57,0:00:25.50,MidLeft,,0,0,0,,FROM IDEA
+Dialogue: 5,0:00:22.10,0:00:25.50,BottomCard,,0,0,0,,TO APPROVAL
+Dialogue: 5,0:00:25.50,0:00:27.13,CenterGold,,0,0,0,,BUILD WITH\NCLARITY.
+Dialogue: 5,0:00:27.13,0:00:29.05,HookWhite,,0,0,0,,BUILD WITH\NCONFIDENCE.
+Dialogue: 5,0:00:29.05,0:00:31.03,CTA,,0,0,0,,START YOUR\NPLANDOME JOURNEY

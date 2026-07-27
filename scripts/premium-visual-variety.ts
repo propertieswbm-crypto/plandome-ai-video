@@ -9,12 +9,44 @@
  */
 
 import { createHash } from "node:crypto";
-import { CAMERA_PRESETS, type CameraPresetName } from "./premium-cinematic-motion";
 
-export type CameraMovement = CameraPresetName;
+export type CameraMovement =
+    | "push_in"
+    | "push_out"
+    | "pan_left"
+    | "pan_right"
+    | "parallax"
+    | "tilt"
+    | "dolly"
+    | "orbit"
+    | "rack_focus"
+    | "light_sweep"
+    | "dolly_zoom"
+    | "dutch_angle"
+    | "aerial_reveal"
+    | "vertical_track"
+    | "arc_rotate"
+    | "ken_burns_slow";
 
-/** All valid camera preset names from the cinematic motion engine */
-const CAMERA_MOVEMENTS: CameraPresetName[] = Object.keys(CAMERA_PRESETS) as CameraPresetName[];
+/** All camera movement names used by the variety engine */
+const CAMERA_MOVEMENTS: CameraMovement[] = [
+    "push_in",
+    "push_out",
+    "pan_left",
+    "pan_right",
+    "parallax",
+    "tilt",
+    "dolly",
+    "orbit",
+    "rack_focus",
+    "light_sweep",
+    "dolly_zoom",
+    "dutch_angle",
+    "aerial_reveal",
+    "vertical_track",
+    "arc_rotate",
+    "ken_burns_slow",
+];
 
 // ─── Visual Identity Types ────────────────────────────────────────────
 
@@ -328,46 +360,15 @@ const FONT_PAIRS: FontPair[] = [
     { heading: "Outfit", body: "Libre Franklin", headingWeight: 900, bodyWeight: 300 },
     { heading: "Clash Display", body: "DM Sans", headingWeight: 800, bodyWeight: 400 },
     { heading: "General Sans", body: "Inter", headingWeight: 800, bodyWeight: 400 },
-    { heading: "Poppins", body: "Geist", headingWeight: 900, bodyWeight: 300 },
-    { heading: "League Spartan", body: "Inter", headingWeight: 900, bodyWeight: 400 },
 ];
 
 const COLOR_PALETTES: ColorPalette[] = [
-    { paper: "#F5EFE3", ink: "#101B2D", accent: "#B87333", secondary: "#F8F2E8", overlay: "#101B2DCC" },
-    { paper: "#E7E0D2", ink: "#17352B", accent: "#A97142", secondary: "#F7F3EA", overlay: "#17352BCC" },
-    { paper: "#F4EBDD", ink: "#242424", accent: "#D99B2B", secondary: "#FFF9EF", overlay: "#242424CC" },
-    { paper: "#F7F0E8", ink: "#541F2B", accent: "#2C2A2B", secondary: "#FFF9F4", overlay: "#541F2BCC" },
-    { paper: "#F3EBDD", ink: "#334A62", accent: "#C47A44", secondary: "#FFFFFF", overlay: "#334A62CC" },
-    { paper: "#DED8CA", ink: "#123B3A", accent: "#C7A86B", secondary: "#FFFDF5", overlay: "#123B3ACC" },
-    { paper: "#D8D1C2", ink: "#4D5539", accent: "#A88452", secondary: "#FFFCF4", overlay: "#4D5539CC" },
-    { paper: "#E7DDCB", ink: "#1E2022", accent: "#C9A227", secondary: "#FFF9EC", overlay: "#1E2022CC" },
-    { paper: "#E8E0CF", ink: "#162A46", accent: "#C58A55", secondary: "#FFFDF7", overlay: "#162A46CC" },
-    { paper: "#F2E4D0", ink: "#6D3028", accent: "#B86E3F", secondary: "#FFF8ED", overlay: "#6D3028CC" },
-    { paper: "#E9DFC8", ink: "#182126", accent: "#8E6F45", secondary: "#FFF9E9", overlay: "#182126CC" },
-    { paper: "#E8E0D6", ink: "#43313F", accent: "#AD765A", secondary: "#FFF9F3", overlay: "#43313FCC" },
-    { paper: "#EEE8DA", ink: "#344334", accent: "#B28B57", secondary: "#FFFCF3", overlay: "#344334CC" },
-    { paper: "#F0E9DF", ink: "#17243B", accent: "#D8755B", secondary: "#FFFFFF", overlay: "#17243BCC" },
-    { paper: "#E2D3BD", ink: "#332821", accent: "#C08A53", secondary: "#FFF8EB", overlay: "#332821CC" },
-    { paper: "#DDE2D4", ink: "#374345", accent: "#91A477", secondary: "#FCFFF7", overlay: "#374345CC" },
-];
-
-const CAMERA_MOVEMENTS: CameraMovement[] = [
-    "push_in",
-    "push_out",
-    "pan_left",
-    "pan_right",
-    "parallax",
-    "tilt",
-    "dolly",
-    "orbit",
-    "rack_focus",
-    "light_sweep",
-    "dolly_zoom",
-    "dutch_angle",
-    "aerial_reveal",
-    "vertical_track",
-    "arc_rotate",
-    "ken_burns_slow",
+    { paper: "#F7F3EA", ink: "#10243A", accent: "#C98B42", secondary: "#DCE8EA", overlay: "rgba(7,26,45,.78)" },
+    { paper: "#F4EFE5", ink: "#17191E", accent: "#B94716", secondary: "#E6D8C5", overlay: "rgba(23,25,30,.78)" },
+    { paper: "#EAF0ED", ink: "#17352B", accent: "#A97142", secondary: "#D5E2DB", overlay: "rgba(23,53,43,.78)" },
+    { paper: "#F6F0EC", ink: "#3B2230", accent: "#C16645", secondary: "#E8D8D4", overlay: "rgba(59,34,48,.78)" },
+    { paper: "#EAF0F5", ink: "#18324B", accent: "#D39A47", secondary: "#D1DEE8", overlay: "rgba(24,50,75,.78)" },
+    { paper: "#F5F1E8", ink: "#2C2A2B", accent: "#8C6A45", secondary: "#E1D6C4", overlay: "rgba(44,42,43,.78)" },
 ];
 
 // ─── Seeded Random ────────────────────────────────────────────────────
@@ -394,6 +395,9 @@ function seededChoice<T>(seed: string, salt: string, choices: readonly T[]): T {
     return choices[index]!;
 }
 
+// Mark as used by suppression: function may be useful in future but is currently
+// unused in this file. Disable unused-var linting for this declaration.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function seededShuffle<T>(seed: string, salt: string, items: readonly T[]): T[] {
     const result = [...items];
     const hash = seededHash(seed, salt);
@@ -408,12 +412,18 @@ function seededShuffle<T>(seed: string, salt: string, items: readonly T[]): T[] 
 
 const usageHistory = new Map<string, Set<string>>();
 
+// Mark as used by suppression: function may be useful in future but is currently
+// unused in this file. Disable unused-var linting for this declaration.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function markUsed(fingerprint: string, category: string, value: string): void {
     const key = `${fingerprint}:${category}`;
     if (!usageHistory.has(key)) usageHistory.set(key, new Set());
     usageHistory.get(key)!.add(value);
 }
 
+// Mark as used by suppression: function may be useful in future but is currently
+// unused in this file. Disable unused-var linting for this declaration.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function isUsed(fingerprint: string, category: string, value: string): boolean {
     const key = `${fingerprint}:${category}`;
     const set = usageHistory.get(key);
@@ -504,7 +514,6 @@ export function generateVisualIdentity(
     };
 
     // Generate color grade
-    const gradeSeed = seededHash(seed, "grade");
     const colorGrade: ColorGrade = {
         saturation: seededFloat(seed, "sat", 0.78, 1.12),
         contrast: seededFloat(seed, "con", 0.92, 1.15),

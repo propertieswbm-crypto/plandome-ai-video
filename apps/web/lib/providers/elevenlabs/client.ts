@@ -1,6 +1,6 @@
 import { logger } from "@openvideo/observability";
 
-const API_BASE = "https://api.elevenlabs.io";
+const API_BASE = process.env.ELEVENLABS_API_BASE_URL ?? "https://api.elevenlabs.io";
 const VOICE_CACHE_TTL_MS = 15 * 60 * 1_000;
 const voiceNames = { ella: "Ella" } as const;
 type VoiceKey = keyof typeof voiceNames;

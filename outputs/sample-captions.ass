@@ -1,0 +1,21 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Caption,Arial,48,&H00FFFFFF,&H000000FF,&H0018324B,&HD918324B,-1,0,0,0,100,100,0,0,3,4,0,2,74,74,110,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:00.00,0:00:03.41,Caption,,0,0,0,,Planning a home extension or property transformation?
+Dialogue: 0,0:00:03.41,0:00:08.85,Caption,,0,0,0,,Start with a clear view of the site, its surroundings,\Nand every opportunity from above.
+Dialogue: 0,0:00:08.85,0:00:12.43,Caption,,0,0,0,,From elegant Victorian streets\Nto ambitious modern upgrades,
+Dialogue: 0,0:00:12.43,0:00:16.93,Caption,,0,0,0,,Plandome turns complex planning\Ninto a confident path forward.
+Dialogue: 0,0:00:16.93,0:00:20.57,Caption,,0,0,0,,Our specialists combine local insight,\Nthoughtful design,
+Dialogue: 0,0:00:20.57,0:00:25.50,Caption,,0,0,0,,and practical guidance to move your project\Nfrom first idea to approval.
+Dialogue: 0,0:00:25.50,0:00:27.13,Caption,,0,0,0,,Build with clarity.
+Dialogue: 0,0:00:27.13,0:00:29.05,Caption,,0,0,0,,Build with confidence.
+Dialogue: 0,0:00:29.05,0:00:31.03,Caption,,0,0,0,,Start your Plandome journey today.

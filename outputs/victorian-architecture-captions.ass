@@ -1,0 +1,23 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: 1920
+WrapStyle: 2
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Label,Arial,24,&H00D39A47,&H000000FF,&H00132638,&HC0132638,-1,0,0,0,100,100,4,0,3,2,0,7,60,60,178,1
+Style: Editorial,Arial,44,&H00FFFFFF,&H000000FF,&H00132638,&HE6132638,-1,0,0,0,100,100,0,0,3,5,0,1,62,62,108,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 1,0:00:00.00,0:00:31.03,Label,,0,0,0,,PLANDOME  /  VICTORIAN ARCHITECTURE
+Dialogue: 2,0:00:00.00,0:00:03.41,Editorial,,0,0,0,,PLANNING A HOME EXTENSION\NOR PROPERTY TRANSFORMATION?
+Dialogue: 2,0:00:03.41,0:00:08.85,Editorial,,0,0,0,,START WITH A CLEAR VIEW OF THE SITE,\NITS SURROUNDINGS,\NAND EVERY OPPORTUNITY FROM ABOVE.
+Dialogue: 2,0:00:08.85,0:00:12.43,Editorial,,0,0,0,,FROM ELEGANT VICTORIAN STREETS\NTO AMBITIOUS MODERN UPGRADES,
+Dialogue: 2,0:00:12.43,0:00:16.93,Editorial,,0,0,0,,PLANDOME TURNS COMPLEX PLANNING\NINTO A CONFIDENT PATH FORWARD.
+Dialogue: 2,0:00:16.93,0:00:20.57,Editorial,,0,0,0,,OUR SPECIALISTS COMBINE LOCAL INSIGHT\NAND THOUGHTFUL DESIGN,
+Dialogue: 2,0:00:20.57,0:00:25.50,Editorial,,0,0,0,,WITH PRACTICAL GUIDANCE\NTO MOVE YOUR PROJECT\NFROM FIRST IDEA TO APPROVAL.
+Dialogue: 2,0:00:25.50,0:00:27.13,Editorial,,0,0,0,,BUILD WITH CLARITY.
+Dialogue: 2,0:00:27.13,0:00:29.05,Editorial,,0,0,0,,BUILD WITH CONFIDENCE.
+Dialogue: 2,0:00:29.05,0:00:31.03,Editorial,,0,0,0,,START YOUR PLANDOME JOURNEY TODAY.

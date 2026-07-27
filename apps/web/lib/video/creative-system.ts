@@ -4,8 +4,41 @@ export type VariationIdentity = { generationId: string; variationSeed: string; p
 export type VideoTemplate = { id: string; name: string; layoutFamily: string; textPosition: string; mediaPosition: string; captionStyle: string; overlayStyle: string; transitionPreset: string; motionPreset: string };
 export type Palette = { id: string; background: string; surface: string; primaryText: string; secondaryText: string; accent: string; overlay: string; contrastScore: number; tags: string[] };
 export type FontPair = { id: string; headingFont: string; bodyFont: string; headingWeight: number; bodyWeight: number; category: string; supportedCharacters: string[] };
-export type CreativeSelection = { template: VideoTemplate; palette: Palette; fontPair: FontPair; sceneLayouts: string[]; transitions: string[]; motionPresets: string[]; textStyles: string[]; creativeFingerprint: string; rejectedTemplateIds: string[]; rejectedPaletteIds: string[]; rejectedFontPairIds: string[] };
-export type GenerationHistory = { generationId: string; projectId: string; variationSeed: string; templateId: string; layoutFamily: string; paletteId: string; fontPairId: string; assetIds: string[]; sceneFingerprints: string[]; creativeFingerprint: string; createdAt: string };
+export type DesignSystem = { id: string; name: string; family: "editorial" | "luxury" | "minimal" | "paper" | "illustrated" | "retro" | "tech" | "cinematic"; artDirection: string[] };
+export type CreativeSelection = { designSystem: DesignSystem; template: VideoTemplate; palette: Palette; fontPair: FontPair; sceneLayouts: string[]; transitions: string[]; motionPresets: string[]; textStyles: string[]; creativeFingerprint: string; rejectedDesignSystemIds: string[]; rejectedTemplateIds: string[]; rejectedPaletteIds: string[]; rejectedFontPairIds: string[] };
+export type GenerationHistory = { generationId: string; projectId: string; variationSeed: string; designSystemId?: string; templateId: string; layoutFamily: string; paletteId: string; fontPairId: string; assetIds: string[]; sceneFingerprints: string[]; creativeFingerprint: string; createdAt: string };
+
+const familyRules: Record<DesignSystem["family"], string[]> = {
+  editorial: ["luxury typography", "elegant spacing", "large photography", "smooth subtle motion", "minimal colour palette"],
+  luxury: ["restrained premium typography", "cinematic lighting", "elegant shadows", "high-contrast product focus", "refined transitions"],
+  minimal: ["balanced negative space", "precise alignment", "clean hierarchy", "subtle depth", "natural easing"],
+  paper: ["realistic paper texture", "layered paper with torn edges", "soft shadows", "folded corners", "paper-slide transitions", "handcrafted depth"],
+  illustrated: ["purpose-made illustration", "expressive line work", "layered depth", "handcrafted transitions", "clear visual hierarchy"],
+  retro: ["authentic period texture", "optical imperfections", "analogue motion", "purposeful typography", "cinematic framing"],
+  tech: ["glass panels", "animated UI", "gradient lighting", "floating cards", "premium icons", "modern motion graphics"],
+  cinematic: ["realistic lighting", "cinematic camera movement", "dynamic masking", "layered parallax", "motion blur", "product-led composition"],
+};
+
+const designSystemGroups: Array<[DesignSystem["family"], string[]]> = [
+  ["editorial", ["Premium Editorial", "Magazine Editorial", "Fashion Campaign", "Newspaper", "Pinterest Mood Board", "Mood Board Editorial", "Architectural Portfolio"]],
+  ["luxury", ["Luxury Lifestyle", "Corporate Premium", "Luxury Black Theme", "Premium Product Showcase"]],
+  ["minimal", ["Apple Presentation", "Swiss Design", "Minimal Scandinavian", "Modern Startup", "Clean Motion Graphics", "Y2K Minimal"]],
+  ["paper", ["Paper Cut Collage", "Torn Paper", "Layered Cardstock", "White Notebook", "Graph Paper", "Sticky Notes", "Corkboard", "Scrapbook", "Vintage Journal", "Polaroid Album"]],
+  ["illustrated", ["Blueprint", "Whiteboard Animation", "Clay Animation", "Fabric Collage"]],
+  ["retro", ["Retro Film"]],
+  ["tech", ["Modern Tech UI", "Glassmorphism", "Soft 3D", "Dashboard Interface", "Infographic Motion", "Digital Workspace"]],
+  ["cinematic", ["Cinematic Documentary", "High-End Motion Design"]],
+];
+
+const slug = (value: string) => value.toLowerCase().replace(/&/g, "and").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+export const designSystems: DesignSystem[] = designSystemGroups.flatMap(([family, names]) =>
+  names.map((name) => ({
+    id: slug(name),
+    name,
+    family,
+    artDirection: familyRules[family],
+  })),
+);
 
 export const templates: VideoTemplate[] = [
   ["editorial-split","Editorial Split","editorial-split","left","right","lower-third","paper","page-wipe","masked-reveal"],
@@ -56,12 +89,12 @@ function hash(seed: string, label: string) { return Number.parseInt(createHash("
 export function seededOrder<T>(values: T[], seed: string, label: string): T[] { return [...values].sort((a,b) => hash(seed, `${label}:${JSON.stringify(a)}`) - hash(seed, `${label}:${JSON.stringify(b)}`)); }
 function selectFresh<T extends {id:string}>(values:T[], excluded:Set<string>, seed:string, label:string) { return seededOrder(values.filter(v=>!excluded.has(v.id)).length ? values.filter(v=>!excluded.has(v.id)) : values,seed,label)[0]!; }
 export function selectCreative(identity: VariationIdentity, recent: GenerationHistory[], sceneCount: number): CreativeSelection {
- const last3=recent.slice(0,3); const template=selectFresh(templates,new Set(last3.map(x=>x.templateId)),identity.variationSeed,"template");
+ const last3=recent.slice(0,3); const previousDesignSystemId=recent[0]?.designSystemId; const designSystem=selectFresh(designSystems,new Set(previousDesignSystemId?[previousDesignSystemId]:[]),identity.variationSeed,"design-system"); const template=selectFresh(templates,new Set(last3.map(x=>x.templateId)),identity.variationSeed,`template:${designSystem.id}`);
  const palette=selectFresh(palettes,new Set(recent.slice(0,3).map(x=>x.paletteId)),identity.variationSeed,"palette"); const fontPair=selectFresh(fontPairs,new Set(recent.slice(0,3).map(x=>x.fontPairId)),identity.variationSeed,"font");
  const layouts=seededOrder(templates.map(x=>x.layoutFamily),identity.variationSeed,"layouts").slice(0,Math.max(sceneCount,1)); while(layouts.length<sceneCount) layouts.push(...layouts);
  const transitions=seededOrder(["page-wipe","focus-pull","vertical-push","diagonal-wipe","document-slide","color-dip"],identity.variationSeed,"transitions");
  const motions=seededOrder(["push-in","pull-out","pan-left","pan-right","parallax","masked-reveal","line-draw","dolly"],identity.variationSeed,"motions");
  const textStyles=seededOrder(["boxed","editorial","rail","minimal","document","cinematic"],identity.variationSeed,"text");
- const payload={templateId:template.id,paletteId:palette.id,fontPairId:fontPair.id,sceneLayouts:layouts.slice(0,sceneCount),transitions,motionPresets:motions,textStyles};
- return {template,palette,fontPair,sceneLayouts:payload.sceneLayouts,transitions,motionPresets:motions,textStyles,creativeFingerprint:createHash("sha256").update(JSON.stringify(payload)).digest("hex"),rejectedTemplateIds:last3.map(x=>x.templateId),rejectedPaletteIds:recent.slice(0,3).map(x=>x.paletteId),rejectedFontPairIds:recent.slice(0,3).map(x=>x.fontPairId)};
+ const payload={designSystemId:designSystem.id,templateId:template.id,paletteId:palette.id,fontPairId:fontPair.id,sceneLayouts:layouts.slice(0,sceneCount),transitions,motionPresets:motions,textStyles};
+ return {designSystem,template,palette,fontPair,sceneLayouts:payload.sceneLayouts,transitions,motionPresets:motions,textStyles,creativeFingerprint:createHash("sha256").update(JSON.stringify(payload)).digest("hex"),rejectedDesignSystemIds:previousDesignSystemId?[previousDesignSystemId]:[],rejectedTemplateIds:last3.map(x=>x.templateId),rejectedPaletteIds:recent.slice(0,3).map(x=>x.paletteId),rejectedFontPairIds:recent.slice(0,3).map(x=>x.fontPairId)};
 }

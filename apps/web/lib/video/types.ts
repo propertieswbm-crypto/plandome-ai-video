@@ -15,6 +15,8 @@ export type VideoJob = {
   projectId: string;
   creativeFingerprint?: string;
   inspectorUrl?: string;
+  creativeProjectUrl?: string;
+  creativeProjectVersion?: number;
   canvaDesignId?: string;
   canvaEditUrl?: string;
   error?: { code: string; message: string };

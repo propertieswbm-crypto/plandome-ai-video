@@ -3,6 +3,8 @@ import path from "node:path";
 import type { PlannedScene } from "./video-composition";
 
 export type CameraMovement = "push-in" | "push-out" | "pan-left" | "pan-right" | "parallax" | "tilt" | "dolly";
+export type ShotType = "drone" | "wide" | "medium" | "close-up" | "detail" | "planning-documents" | "architectural-drawings" | "builders" | "completed-extension";
+export type ScriptLengthProfile = "short" | "medium" | "long";
 
 export type VisualBrief = {
   sentence: string;
@@ -16,14 +18,18 @@ export type VisualBrief = {
   action: string;
   cameraAngle: string;
   cameraMovement: CameraMovement;
+  shotType: ShotType;
+  scriptLengthProfile: ScriptLengthProfile;
   searchQuery: string;
   requiredVisualTerms: string[];
   forbiddenVisualTerms: string[];
 };
 
 const movements: CameraMovement[] = ["push-in", "pan-left", "push-out", "pan-right", "parallax", "tilt", "dolly"];
+const strongMovements: CameraMovement[] = ["dolly", "push-in", "parallax", "pan-right"];
+const shotCycle: ShotType[] = ["drone", "wide", "medium", "close-up", "detail", "planning-documents", "architectural-drawings", "builders", "completed-extension"];
 
-export function createVisualBrief(sentence: string, index: number): VisualBrief {
+export function createVisualBrief(sentence: string, index: number, totalScenes = 1, durationSeconds = 30): VisualBrief {
   const value = sentence.toLowerCase();
   const rear = /rear extension|extension/.test(value);
   const loft = /loft|roof/.test(value);
@@ -36,17 +42,25 @@ export function createVisualBrief(sentence: string, index: number): VisualBrief 
   const topic = rear ? "residential extension" : loft ? "loft conversion" : drawings || council ? "planning approval" : commercial ? "commercial property" : risk ? "project risk" : "UK property planning";
   const environment = commercial ? "traditional British high street" : council ? "UK planning office" : rear ? "rear garden of a British terraced house" : "traditional British residential street";
   const action = drawings || council ? "reviewing accurate planning documents" : risk ? "inspecting the property detail" : rear || loft ? "showing the completed architectural alteration" : "showing the property exterior";
-  const cameraAngle = drawings || council ? "clean overhead close-up" : rear ? "three-quarter rear exterior" : commercial ? "street-level architectural view" : "three-quarter exterior view";
-  const searchQuery = `United Kingdom ${architecture} ${object} ${environment}`;
+  const scriptLengthProfile: ScriptLengthProfile = durationSeconds <= 20 ? "short" : durationSeconds <= 45 ? "medium" : "long";
+  const semanticShot: ShotType | undefined = drawings ? "architectural-drawings" : council ? "planning-documents" : /builder|construction|build/.test(value) ? "builders" : /complete|finished|result/.test(value) ? "completed-extension" : undefined;
+  // Long-form ads deliberately traverse the complete shot grammar instead of
+  // allowing repeated planning keywords to collapse every beat into documents.
+  const cycledShot = shotCycle[index % Math.min(shotCycle.length, Math.max(5, totalScenes))] ?? "wide";
+  const shotType = scriptLengthProfile === "long" ? cycledShot : semanticShot ?? cycledShot;
+  const cameraAngle = shotType === "drone" ? "UK aerial drone view" : shotType === "close-up" || shotType === "detail" ? "cinematic architectural close-up detail" : shotType === "planning-documents" || shotType === "architectural-drawings" ? "clean overhead close-up" : rear ? "three-quarter rear exterior" : commercial ? "street-level architectural view" : `${shotType} architectural view`;
+  const searchQuery = `United Kingdom ${architecture} ${object} ${environment} ${shotType.replace("-", " ")} ${action}`;
   const requiredVisualTerms=["United Kingdom",architecture,object,...(rear?["rear extension","British rear garden"]:[]),...(drawings||council?["UK planning documents"]:[])];
   const forbiddenVisualTerms=["American suburb","United States house","skyscraper","Mediterranean villa","tropical architecture","restaurant","generic office employees","luxury mansion"];
-  return { sentence, topic, object, country: "United Kingdom", architecture, environment, industry: "UK architecture and town planning", emotion: risk ? "cautious and authoritative" : "confident and aspirational", action, cameraAngle, cameraMovement: movements[index % movements.length] ?? "push-in", searchQuery,requiredVisualTerms,forbiddenVisualTerms };
+  const movementPool = scriptLengthProfile === "short" ? strongMovements : movements;
+  return { sentence, topic, object, country: "United Kingdom", architecture, environment, industry: "UK architecture and town planning", emotion: risk ? "cautious and authoritative" : "confident and aspirational", action, cameraAngle, cameraMovement: movementPool[index % movementPool.length] ?? "push-in", shotType, scriptLengthProfile, searchQuery,requiredVisualTerms,forbiddenVisualTerms };
 }
 
 export type SceneValidation = { sceneId:string; scriptMatchScore:number; visualMatchScore:number; architectureScore:number; locationScore:number; textAccuracyScore:number; qualityScore:number; repetitionScore:number; passed:boolean; failureReasons:string[] };
 export type QualityReport = { passed: boolean; checkedAt: string; scenes: Array<SceneValidation & { index:number; failures:string[] }> };
 
-export type DesignProfile = { generationId: string; templateIndex: number; template: string; paletteIndex: number; palette: { paper: string; ink: string; accent: string; secondary: string }; fontIndex: number; fonts: { heading: string; body: string }; overlay: "solid" | "glass" | "editorial" | "outline"; templateId?:string; layoutFamily?:string; sceneLayouts?:string[]; transitions?:string[]; motionPresets?:string[]; textStyles?:string[]; creativeFingerprint?:string };
+export type EditorPreferences = { captionScale:number; overlayOpacity:number; logoPosition:"top-left"|"top-right"|"bottom-left"|"bottom-right"; logoScale:number; pacing:"measured"|"balanced"|"fast"; notes:string };
+export type DesignProfile = { generationId: string; templateIndex: number; template: string; paletteIndex: number; palette: { paper: string; ink: string; accent: string; secondary: string }; fontIndex: number; fonts: { heading: string; body: string }; overlay: "solid" | "glass" | "editorial" | "outline"; editorPreferences?:EditorPreferences; designSystemId?:string; designSystemName?:string; designSystemFamily?:string; artDirection?:string[]; templateId?:string; layoutFamily?:string; sceneLayouts?:string[]; transitions?:string[]; motionPresets?:string[]; textStyles?:string[]; creativeFingerprint?:string };
 const templates = ["Editorial Premium", "Minimal Luxury", "Magazine Style", "Apple Style", "Corporate Modern", "Dark Premium", "Architectural", "Luxury Real Estate", "Split Editorial", "Clean Business", "Bold Motion", "Minimal Motion", "Modern Cards", "Glassmorphism", "Premium Infographic"];
 const palettes = [["#E9E0D0", "#111827", "#B87333", "#F8F4EC"], ["#E8E0CF", "#17352B", "#8A9A5B", "#FBF8F0"], ["#EEE8DC", "#242424", "#C9A227", "#FFFDF7"], ["#EFF4F8", "#25364A", "#6F8FAF", "#FFFFFF"], ["#E7E3D8", "#30352C", "#708238", "#FAF8F1"], ["#F1EBDD", "#202124", "#8C6A43", "#FFFDF8"], ["#F4F0E5", "#123B3A", "#B08D57", "#FFFFF5"], ["#E9E6E0", "#3A3734", "#A97142", "#FFF9ED"]];
 const fontPairs = [["League Spartan", "Inter"], ["Sora", "DM Sans"], ["Manrope", "Plus Jakarta Sans"], ["Poppins", "Geist"], ["Outfit", "Nunito Sans"], ["Space Grotesk", "IBM Plex Sans"], ["General Sans", "Inter"], ["Clash Display", "DM Sans"]];
@@ -85,6 +99,7 @@ export function validateVideoPlan(scenes: PlannedScene[]): QualityReport {
     const hasMedia=Boolean(asset)||!requiresMedia;
     const motionRules:Partial<Record<NonNullable<PlannedScene["motionVisual"]>,RegExp>>={"tree-risk":/tree|root|oak/i,"soil-movement":/soil|clay|moisture|shrink|swell|dry|wet/i,"foundation-detail":/foundation|footing|underpin|deeper/i,"structural-damage":/structural|damage|crack|movement|subsidence/i,"victorian-rear-extension":/extension|rear|garden/i,"planning-drawings":/planning|drawing|permission|council|application/i,"commercial-property":/commercial|office|shop|retail|high street/i,"cost-analysis":/Â£|cost|budget|fee|price|money/i,"project-timeline":/week|month|timeline|schedule|delay|deadline/i,"compliance-check":/check|due diligence|verify|review|decision|feasibility/i};
     const motionRelevant=scene.motionVisual ? (motionRules[scene.motionVisual]?.test(scene.text) ?? true) : false;
+    if (scene.motionVisual && !motionRelevant) failures.push("Procedural motion topic is not relevant to the narration line.");
     const visualMatchScore=scene.motionVisual ? .91 : hasMedia ? .86 : 0;
     const architectureScore=scene.brief && /Victorian|Edwardian|Georgian|planning|survey/i.test(`${scene.brief.architecture} ${scene.brief.object}`) ? .88 : 0;
     const locationScore=scene.brief && /United Kingdom|UK|British/i.test(`${scene.brief.country} ${scene.brief.searchQuery}`) ? .95 : 0;

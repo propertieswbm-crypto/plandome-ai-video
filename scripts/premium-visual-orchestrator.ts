@@ -17,6 +17,10 @@ import {
   generateNoApiCinematicVisual,
   getNoApiVisualConfig
 } from "./no-api-cinematic-provider";
+import {
+  getPixabayConfig,
+  searchPixabayMedia
+} from "./pixabay-visual-provider";
 
 export interface ResolvedSceneVisual {
   sceneId: string;
@@ -24,6 +28,7 @@ export interface ResolvedSceneVisual {
   mode: VisualMode;
   assetPath?: string;
   source:
+  | "pixabay"
   | "no_api_commons"
   | "comfyui"
   | "local_video"
@@ -42,6 +47,8 @@ export interface ResolvePremiumVisualOptions {
   usedAssetPaths?: Set<string>;
   usedSourceUrls?: Set<string>;
   usedImageHashes?: Set<string>;
+  usedVideoHashes?: Set<string>;
+  usedPixabayIds?: Set<number>;
 }
 
 const VIDEO_EXTENSIONS = new Set([
@@ -122,8 +129,8 @@ export async function findRealisticLocalFallback(
   libraryRoot = path.resolve("assets", "visual-library"),
   usedAssetPaths?: Set<string>
 ): Promise<{
-  video?: string;
-  image?: string;
+  video: string | undefined;
+  image: string | undefined;
 }> {
   const category = categoryFolder(
     scene.fallbackCategory || scene.category
@@ -207,42 +214,84 @@ export async function resolvePremiumSceneVisual(
   const scene = upgradeSceneForPremiumAd(originalScene);
   const noApiConfig = getNoApiVisualConfig();
   const comfyConfig = getComfyUIConfig();
+  const pixabayConfig = getPixabayConfig();
 
   let lastError = "";
 
+  // --- Phase 1: Prefer Pixabay's curated real video/photo catalogue. ---
+  if (pixabayConfig.enabled && scene.category !== "brand_cta") {
+    const pixabay = await searchPixabayMedia(
+      {
+        sceneId: scene.sceneId,
+        sceneIndex: options.sceneIndex || 0,
+        totalScenes: options.totalScenes || 1,
+        category: scene.category,
+        subject: scene.subject,
+        environment: scene.environment,
+        action: scene.action,
+        durationSeconds: scene.durationSeconds,
+        usedPixabayIds: options.usedPixabayIds,
+        usedSourceUrls: options.usedSourceUrls,
+        usedImageHashes: options.usedImageHashes,
+        usedVideoHashes: options.usedVideoHashes,
+      },
+      pixabayConfig,
+    );
+
+    if (pixabay.success && pixabay.outputPath) {
+      const resolvedPath = path.resolve(pixabay.outputPath);
+      if (!options.usedAssetPaths || !options.usedAssetPaths.has(resolvedPath)) {
+        options.usedAssetPaths?.add(resolvedPath);
+        return {
+          sceneId: scene.sceneId,
+          success: true,
+          mode: "local_video",
+          assetPath: resolvedPath,
+          source: "pixabay",
+          attempts: pixabay.attempts,
+          metadata: {
+            sourceUrl: pixabay.media?.pageURL || pixabay.media?.sourceURL,
+            sourceTitle: pixabay.media?.tags.join(", "),
+            artist: pixabay.media?.user,
+            query: pixabay.media?.searchQuery,
+            mediaType: pixabay.media?.mediaType,
+            pixabayId: pixabay.media?.pixabayId,
+          },
+        };
+      }
+    }
+    lastError = pixabay.error || "Pixabay media resolution failed.";
+  }
+
+  // --- Phase 2: Try Wikimedia Commons and locally hosted ComfyUI. ---
   for (const provider of providerOrder()) {
     if (
       provider === "no_api" &&
       noApiConfig.enabled &&
       scene.category !== "brand_cta"
     ) {
-      const generated =
-        await generateNoApiCinematicVisual(
-          {
-            sceneId: scene.sceneId,
-            sceneIndex: options.sceneIndex || 0,
-            totalScenes: options.totalScenes || 1,
-            category: scene.category,
-            subject: scene.subject,
-            environment: scene.environment,
-            action: scene.action,
-            fullScript: options.fullScript,
-            durationSeconds: scene.durationSeconds,
-            usedSourceUrls: options.usedSourceUrls,
-            usedImageHashes: options.usedImageHashes
-          },
-          noApiConfig
-        );
+      const generated = await generateNoApiCinematicVisual(
+        {
+          sceneId: scene.sceneId,
+          sceneIndex: options.sceneIndex || 0,
+          totalScenes: options.totalScenes || 1,
+          category: scene.category,
+          subject: scene.subject,
+          environment: scene.environment,
+          action: scene.action,
+          fullScript: options.fullScript,
+          durationSeconds: scene.durationSeconds,
+          usedSourceUrls: options.usedSourceUrls,
+          usedImageHashes: options.usedImageHashes,
+        },
+        noApiConfig,
+      );
 
+      // If Commons succeeded, return the result immediately
       if (generated.success && generated.outputPath) {
-        const resolvedPath = path.resolve(
-          generated.outputPath
-        );
+        const resolvedPath = path.resolve(generated.outputPath);
 
-        if (
-          !options.usedAssetPaths ||
-          !options.usedAssetPaths.has(resolvedPath)
-        ) {
+        if (!options.usedAssetPaths || !options.usedAssetPaths.has(resolvedPath)) {
           options.usedAssetPaths?.add(resolvedPath);
 
           return {
@@ -257,17 +306,18 @@ export async function resolvePremiumSceneVisual(
               sourceTitle: generated.sourceTitle,
               license: generated.license,
               artist: generated.artist,
-              query: generated.query
-            }
+              query: generated.query,
+            },
           };
         }
 
-        lastError =
-          "A generated clip duplicated another scene asset.";
+        lastError = "A generated clip duplicated another scene asset.";
+      } else if (generated.budgetExhausted) {
+        // Budget exhausted — skip straight to local fallback (don't try ComfyUI)
+        lastError = generated.error || "Online search budget exhausted; using local fallback.";
+        break;
       } else {
-        lastError =
-          generated.error ||
-          "No-key cinematic media generation failed.";
+        lastError = generated.error || "No-key cinematic media generation failed.";
       }
     }
 
@@ -276,12 +326,8 @@ export async function resolvePremiumSceneVisual(
       comfyConfig.enabled &&
       scene.category !== "brand_cta"
     ) {
-      for (let attempt = 1; attempt <= 3; attempt += 1) {
-        const retry = createRetryAttempt(
-          scene,
-          attempt,
-          lastError
-        );
+      for (let attempt = 1; attempt <= 2; attempt += 1) {
+        const retry = createRetryAttempt(scene, attempt, lastError);
 
         const generated = await generateWithComfyUI(
           {
@@ -292,26 +338,15 @@ export async function resolvePremiumSceneVisual(
             seed: retry.seed || Date.now(),
             width: 720,
             height: 1280,
-            durationSeconds: scene.durationSeconds
+            durationSeconds: scene.durationSeconds,
           },
-          {
-            ...comfyConfig,
-            maxRetries: 1
-          }
+          { ...comfyConfig, maxRetries: 1 },
         );
 
-        if (
-          generated.success &&
-          generated.outputPath
-        ) {
-          const resolvedPath = path.resolve(
-            generated.outputPath
-          );
+        if (generated.success && generated.outputPath) {
+          const resolvedPath = path.resolve(generated.outputPath);
 
-          if (
-            !options.usedAssetPaths ||
-            !options.usedAssetPaths.has(resolvedPath)
-          ) {
+          if (!options.usedAssetPaths || !options.usedAssetPaths.has(resolvedPath)) {
             options.usedAssetPaths?.add(resolvedPath);
 
             return {
@@ -320,37 +355,70 @@ export async function resolvePremiumSceneVisual(
               mode: "ai_video",
               assetPath: resolvedPath,
               source: "comfyui",
-              attempts: attempt
+              attempts: attempt,
             };
           }
         }
 
-        lastError =
-          generated.error ||
-          "ComfyUI generation failed.";
+        lastError = generated.error || "ComfyUI generation failed.";
       }
     }
   }
 
+  // --- Phase 3: Local fallback (uses curated library assets). ---
+  const localFallback = await findRealisticLocalFallback(scene, undefined, options.usedAssetPaths);
+
+  if (localFallback.video) {
+    return {
+      sceneId: scene.sceneId,
+      success: true,
+      mode: "local_video",
+      assetPath: localFallback.video,
+      source: "local_video",
+      attempts: 1,
+      metadata: {
+        note: "Local library video fallback used (online search was slow or unavailable).",
+        category: scene.fallbackCategory || scene.category,
+      },
+    };
+  }
+
+  if (localFallback.image) {
+    options.usedAssetPaths?.add(path.resolve(localFallback.image));
+
+    return {
+      sceneId: scene.sceneId,
+      success: true,
+      mode: "local_image_motion",
+      assetPath: localFallback.image,
+      source: "local_image",
+      attempts: 1,
+      metadata: {
+        note: "Local library image fallback used (online search was slow or unavailable).",
+        category: scene.fallbackCategory || scene.category,
+      },
+    };
+  }
+
+  // --- Phase 4: Last-resort deterministic fallback (brand_cta or generic). ---
   if (scene.category === "brand_cta") {
     return {
       sceneId: scene.sceneId,
       success: true,
       mode: "typography",
       source: "brand_cta",
-      attempts: 0
+      attempts: 0,
     };
   }
 
+  // Final fallback: return a clear error so the caller can decide
   return {
     sceneId: scene.sceneId,
     success: false,
     mode: "local_video",
     source: "none",
     attempts: 0,
-    error:
-      lastError ||
-      "No unique licensed cinematic media was available."
+    error: lastError || "No unique licensed cinematic media was available and no local fallback exists.",
   };
 }
 
@@ -361,15 +429,24 @@ export async function resolveAllPremiumVisuals(
   const results: ResolvedSceneVisual[] = [];
   const usedAssetPaths = new Set<string>();
   const usedSourceUrls = new Set<string>();
+  const usedImageHashes = new Set<string>();
+  const usedVideoHashes = new Set<string>();
+  const usedPixabayIds = new Set<number>();
 
   for (let index = 0; index < scenes.length; index += 1) {
+    const scene = scenes[index];
+    if (!scene) continue;
+
     results.push(
-      await resolvePremiumSceneVisual(scenes[index], {
+      await resolvePremiumSceneVisual(scene, {
         sceneIndex: index,
         totalScenes: scenes.length,
         fullScript,
         usedAssetPaths,
-        usedSourceUrls
+        usedSourceUrls,
+        usedImageHashes,
+        usedVideoHashes,
+        usedPixabayIds
       })
     );
   }

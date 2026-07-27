@@ -105,6 +105,9 @@ importers:
       '@openvideo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@openvideo/creative-project':
+        specifier: workspace:*
+        version: link:../../packages/creative-project
       '@openvideo/observability':
         specifier: workspace:*
         version: link:../../packages/observability
@@ -169,6 +172,21 @@ importers:
       zod:
         specifier: ^4.1.11
         version: 4.4.3
+    devDependencies:
+      '@types/node':
+        specifier: ^20
+        version: 20.19.43
+      eslint:
+        specifier: ^9
+        version: 9.39.5(jiti@2.7.0)
+      typescript:
+        specifier: ^5
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.7(@types/node@20.19.43)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)
+
+  packages/creative-project:
     devDependencies:
       '@types/node':
         specifier: ^20

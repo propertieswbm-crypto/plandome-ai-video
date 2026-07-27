@@ -34,8 +34,18 @@ export const createVideoJobSchema = z.object({
   format: z.enum(["portrait", "landscape"]).default("portrait"),
   quality: z.enum(["preview", "production"]).default("preview"),
   useAvatar: z.boolean().default(true),
+  sceneMediaUrls: z.array(
+    z.union([z.url({ protocol: /^https?$/ }), z.literal("")])
+  ).max(30).default([]),
 });
 export type CreateVideoJobInput = z.infer<typeof createVideoJobSchema>;
+
+export const createOmniSchema = z.object({
+  prompt: z.string().trim().min(1).max(10_000),
+  channel: z.string().optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
+});
+export type CreateOmniInput = z.infer<typeof createOmniSchema>;
 
 export const videoJobStatusSchema = z.enum(["queued", "planning", "narrating", "avatar", "composing", "rendering", "completed", "failed"]);
 export type VideoJobStatus = z.infer<typeof videoJobStatusSchema>;

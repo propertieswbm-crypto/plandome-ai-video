@@ -1,0 +1,14 @@
+[0:v]trim=start=0.2:duration=3.26,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.08:saturation=0.94:brightness=-0.02,drawbox=x=85:y=675:w=910:h=570:color=0x102332@0.28:t=fill,drawbox=x=85:y=675:w=9:h=570:color=0xE73F48@0.95:t=fill[s0];
+[1:v]trim=start=1.0:duration=2.32,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.06:saturation=0.96[s1];
+[3:v]trim=start=0.4:duration=3.64,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.07:saturation=0.98,drawbox=x=70:y=1425:w=940:h=355:color=0x102332@0.40:t=fill,drawbox=x=70:y=1425:w=940:h=8:color=0xE73F48@0.95:t=fill[s2];
+[4:v]trim=start=0.4:duration=3.88,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.08:saturation=0.95[s3];
+[7:v]trim=start=0.2:duration=4.55,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.08:saturation=0.96,drawbox=x=0:y=0:w=1080:h=1920:color=0x102332@0.12:t=fill[s4];
+[5:v]trim=start=0.5:duration=3.16,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.07:saturation=0.98[s5];
+[8:v]trim=start=0.5:duration=3.52,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.08:saturation=0.96,drawbox=x=72:y=1470:w=936:h=310:color=white@0.57:t=fill,drawbox=x=72:y=1462:w=290:h=8:color=0xE73F48@0.95:t=fill[s6];
+[2:v]trim=start=0.8:duration=3.82,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.06:saturation=0.95[s7];
+[9:v]trim=start=0.3:duration=2.24,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.08:saturation=0.98,drawbox=x=0:y=0:w=300:h=1920:color=0x102332@0.28:t=fill,drawbox=x=300:y=0:w=7:h=1920:color=white@0.78:t=fill[s8];
+[10:v]trim=start=0.2:duration=3.87,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.06:saturation=0.96[s9];
+[13:v]trim=start=1.0:duration=2.74,setpts=PTS-STARTPTS,fps=30,scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,eq=contrast=1.08:saturation=0.90,drawbox=x=0:y=0:w=1080:h=1920:color=0x102332@0.38:t=fill[s10];
+[s0][s1][s2][s3][s4][s5][s6][s7][s8][s9][s10]concat=n=11:v=1:a=0,unsharp=5:5:0.32[base];
+[14:v]scale=205:-1[logo];
+[base][logo]overlay=42:38,subtitles='outputs/loft-conversion-captions.ass'[vout]
