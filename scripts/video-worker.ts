@@ -28,6 +28,7 @@ import {
 } from "../packages/creative-project/src";
 import { PreRenderQualityGate } from "../packages/orchestration/src";
 import { rendererRegistry } from "../packages/renderers/src";
+import { VariationPlanner, visualFingerprint } from "../packages/renderers/remotion/src/variation/variation-planner";
 
 const exec = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "..");
@@ -456,6 +457,23 @@ async function main() {
       ...(memory ? { memory } : {}),
     });
     creativeProject.audio.narration.uri = "composition/assets/narration.mp3";
+    const requestedRenderer = job.input.renderer ?? process.env.VIDEO_RENDERER ?? "hyperframes";
+    const selectedRenderer = rendererRegistry.select(
+      requestedRenderer === "remotion" ? "remotion" : "hyperframes",
+      job.input.allowRendererFallback ?? true,
+    );
+    creativeProject.rendering.engine = selectedRenderer.id;
+    const variation = new VariationPlanner().plan(
+      creativeProject,
+      job.input.variationSeed ?? job.variationSeed,
+      [],
+      job.input.minimumVariationDistance ?? .35,
+    );
+    creativeProject.rendering.variation = {
+      seed:variation.seed,
+      fingerprint:visualFingerprint(variation,creativeProject.assets.map((asset)=>asset.assetId)),
+      profile:variation as unknown as Record<string,unknown>,
+    };
     await projectRepository.save(creativeProject);
     job.creativeProjectUrl = `/api/v1/video-jobs/${id}/project`;
     job.creativeProjectVersion = creativeProject.version;
@@ -807,7 +825,37 @@ async function main() {
     rendererRegistry.requireAvailable(creativeProject.rendering.engine);
     await writePremiumComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design, job.variationSeed);
     await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
-    await update(job, "rendering", 70, "Rendering animated MP4"); const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin"); const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js"); const renderEnv = { ...process.env, PATH: process.platform === "win32" ? `${ffmpegDir}${path.delimiter}${process.env.PATH}` : process.env.PATH }; const silentOutput = path.join(dir, "visual-master.mp4"); const finalOutput = path.join(dir, "output.mp4"); await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv }); await exec(process.execPath, [hyperframes, "render", path.join(dir, "composition"), "--output", silentOutput, "--quality", job.input.quality === "production" ? "high" : "standard", "--fps", "30", "--workers", process.env.RENDER_WORKERS ?? "2", "--strict"], { env: renderEnv, maxBuffer: 10_000_000 }); await exec(mediaBinary("ffmpeg"), ["-y", "-i", silentOutput, "-i", narrationFile, "-filter_complex", `[1:a]apad=whole_dur=${duration.toFixed(6)}[voice]`, "-map", "0:v:0", "-map", "[voice]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", duration.toFixed(6), "-movflags", "+faststart", finalOutput], { env: renderEnv, maxBuffer: 10_000_000 }); const finalQuality = await validateFinalRender(finalOutput, dir, scenes, attributions, mediaBinary("ffmpeg")); if (!finalQuality.passed) throw new Error(`Final render quality validation failed: ${finalQuality.failures.join(" ")}`);
+    await update(job, "rendering", 70, "Rendering animated MP4");
+    const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin");
+    const renderEnv = { ...process.env, PATH: process.platform === "win32" ? `${ffmpegDir}${path.delimiter}${process.env.PATH}` : process.env.PATH };
+    const finalOutput = path.join(dir, "output.mp4");
+    if (creativeProject.rendering.engine === "remotion") {
+      const [{ RemotionRendererAdapter },logoBytes] = await Promise.all([
+        import("../packages/renderers/remotion/src/renderer-adapter"),
+        readFile(path.join(root,"apps/web/public/brand/plandome-logo.png")),
+      ]);
+      const profile=creativeProject.rendering.variation?.profile;
+      if(!profile)throw new Error("Remotion requires a persisted VariationProfile.");
+      const fileUrl=(file:string)=>`file:///${path.resolve(file).replaceAll("\\","/")}`;
+      await new RemotionRendererAdapter().render({
+        project:creativeProject,exportId:"mp4",variation:profile as never,
+        sceneMedia:Object.fromEntries(creativeProject.scenes.map((scene,index)=>[
+          scene.id,fileUrl(path.join(assets,scenes[index]?.videoAsset??scenes[index]?.visualAsset??"")),
+        ]).filter(([,uri])=>!String(uri).endsWith("/assets/"))),
+        narrationPath:fileUrl(narrationFile),logoPath:`data:image/png;base64,${logoBytes.toString("base64")}`,
+        outputPath:finalOutput,width:creativeProject.rendering.width,height:creativeProject.rendering.height,
+        fps:creativeProject.rendering.fps,codec:"h264",quality:creativeProject.rendering.quality,
+        renderingSeed:creativeProject.rendering.variation.seed,contentHash:creativeProject.rendering.variation.fingerprint,
+      },{onProgress:(progress)=>{job.progress=70+Math.round(progress*20);}});
+    } else {
+      const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js");
+      const silentOutput = path.join(dir, "visual-master.mp4");
+      await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv });
+      await exec(process.execPath, [hyperframes, "render", path.join(dir, "composition"), "--output", silentOutput, "--quality", job.input.quality === "production" ? "high" : "standard", "--fps", "30", "--workers", process.env.RENDER_WORKERS ?? "2", "--strict"], { env: renderEnv, maxBuffer: 10_000_000 });
+      await exec(mediaBinary("ffmpeg"), ["-y", "-i", silentOutput, "-i", narrationFile, "-filter_complex", `[1:a]apad=whole_dur=${duration.toFixed(6)}[voice]`, "-map", "0:v:0", "-map", "[voice]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", duration.toFixed(6), "-movflags", "+faststart", finalOutput], { env: renderEnv, maxBuffer: 10_000_000 });
+    }
+    const finalQuality = await validateFinalRender(finalOutput, dir, scenes, attributions, mediaBinary("ffmpeg"));
+    if (!finalQuality.passed) throw new Error(`Final render quality validation failed: ${finalQuality.failures.join(" ")}`);
     const assetIds = attributions.map(x => String((x as { id?: string }).id ?? (x as { source?: string }).source ?? "")).filter(Boolean); await saveGenerationHistory(root, { generationId: job.generationId, projectId: job.projectId, variationSeed: job.variationSeed, designSystemId: creative.designSystem.id, templateId: creative.template.id, layoutFamily: creative.template.layoutFamily, paletteId: creative.palette.id, fontPairId: creative.fontPair.id, assetIds, sceneFingerprints: scenes.map(scene => hashText(`${scene.text}:${scene.brief.searchQuery}`).toString(16)), creativeFingerprint: creative.creativeFingerprint, createdAt: new Date().toISOString() }); job.outputUrl = `/api/v1/video-jobs/${id}/download`; job.canvaUrl = `/api/v1/video-jobs/${id}/canva`; job.inspectorUrl = `/api/v1/video-jobs/${id}/inspector`;
     recordCheckpoint(creativeProject, "rendering", "completed");
     recordCheckpoint(creativeProject, "quality", "completed");

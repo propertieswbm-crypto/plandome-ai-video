@@ -1,0 +1,31 @@
+{
+  "name": "@openvideo/remotion-renderer",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --max-warnings=0",
+    "test": "vitest run",
+    "render:golden": "tsx src/tests/render-golden.ts"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.499",
+    "@remotion/player": "4.0.499",
+    "@remotion/renderer": "4.0.499",
+    "@remotion/transitions": "4.0.499",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "remotion": "4.0.499"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "tsx": "^4.23.1",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  }
+}

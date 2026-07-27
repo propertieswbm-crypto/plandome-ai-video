@@ -27,6 +27,38 @@ per-dimension floors. Repairable failures receive at most two targeted passes;
 critical or unrepaired failures stop before rendering. The worker writes
 scene-level evidence to `creative-quality-scorecard.json`.
 
+## Remotion renderer (validation-gated)
+
+`packages/renderers/remotion` contains the renderer adapter, strict input
+contract, composition root, ten Plandome scene templates, deterministic
+VariationPlanner, fingerprint/similarity functions, FFprobe validation and a
+five-variant golden render harness. It consumes the same `CreativeProject`,
+timeline, assets and audio as Hyperframes. Remotion-specific React types remain
+inside the renderer package.
+
+Hyperframes remains the default. Remotion is selected only when
+`VIDEO_RENDERER=remotion` (or a request sets `renderer: "remotion"`) and
+`REMOTION_VALIDATED=true`. The latter must only be set after the target machine
+passes the real MP4 validation suite. Otherwise the registry selects
+Hyperframes when fallback is allowed or returns a clear unavailable error.
+
+Variation is derived from project identity, semantic scene content and a
+user/revision seed. Its fingerprint covers visual family, ordered templates,
+layouts, cameras, transitions, alignment, masks, pacing and asset IDs.
+Campaign candidates are rejected when their distance from recent accepted
+profiles is below `minimumVariationDistance` (default `0.35`). The accepted
+profile and fingerprint are persisted in `CreativeProject.rendering.variation`.
+
+The renderer bundles `entry.tsx` once per process, renders to a temporary H.264
+MP4, validates codec/dimensions/FPS/duration/audio/file size with FFprobe, then
+renames atomically. Preview and final composition use `PlandomeVideo`; Player
+installation is included for editor integration once runtime validation is
+available.
+
+Remotion uses a special commercial licence. Plandome's automated rendering and
+embedded Player use case requires review against the current Remotion company
+or automator licence before production deployment.
+
 ## Canonical artifact
 
 Every new render writes:

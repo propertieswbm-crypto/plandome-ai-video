@@ -219,7 +219,12 @@ export interface CreativeProject {
   audio: AudioPlan;
   brand: { name: string; logoUri: string; mandatory: boolean };
   transitions: string[];
-  rendering: { engine: "hyperframes"; width: number; height: number; fps: number; quality: "preview" | "production" };
+  rendering: {
+    engine: "hyperframes" | "remotion"; width: number; height: number; fps: number;
+    quality: "preview" | "production"; variation?: {
+      seed:string; fingerprint:string; profile:Record<string,unknown>;
+    };
+  };
   exports: Record<string, { uri: string; mimeType: string; createdAt: string }>;
   quality: QualityFinding[];
   checkpoints: PipelineCheckpoint[];

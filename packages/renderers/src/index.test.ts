@@ -5,4 +5,8 @@ describe("RendererRegistry",()=>{
     expect(rendererRegistry.production()?.id).toBe("hyperframes");
     expect(rendererRegistry.get("remotion")).toMatchObject({available:false,projectNeutral:true});
   });
+  it("falls back safely while Remotion validation is incomplete",()=>{
+    expect(rendererRegistry.select("remotion",true).id).toBe("hyperframes");
+    expect(()=>rendererRegistry.select("remotion",false)).toThrow(/unavailable/i);
+  });
 });

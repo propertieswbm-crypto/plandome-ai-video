@@ -37,8 +37,26 @@ export const createVideoJobSchema = z.object({
   sceneMediaUrls: z.array(
     z.union([z.url({ protocol: /^https?$/ }), z.literal("")])
   ).max(30).default([]),
+  renderer: z.enum(["hyperframes","remotion"]).default("hyperframes"),
+  campaignId: z.string().trim().min(1).max(120).optional(),
+  campaignFamily: z.string().trim().min(1).max(120).optional(),
+  service: z.string().trim().min(1).max(160).optional(),
+  variationSeed: z.string().trim().min(1).max(160).optional(),
+  visualFamily: z.enum(["editorial-property","technical-blueprint","planning-document","premium-corporate","case-study","construction-risk","financial-analysis"]).optional(),
+  excludedTemplates: z.array(z.string().trim().min(1)).max(20).default([]),
+  allowedTemplates: z.array(z.string().trim().min(1)).max(20).default([]),
+  minimumVariationDistance: z.number().min(0).max(1).default(.35),
+  allowRendererFallback: z.boolean().default(true),
 });
 export type CreateVideoJobInput = z.infer<typeof createVideoJobSchema>;
+
+export const createVideoBatchSchema=createVideoJobSchema.extend({
+  scriptId:z.string().trim().min(1).max(120),
+  numberOfVariants:z.number().int().min(1).max(20).default(1),
+  baseSeed:z.string().trim().min(1).max(160),
+  outputFilenamePattern:z.string().trim().min(1).max(180).default("{scriptId}-{variant}.mp4"),
+});
+export type CreateVideoBatchInput=z.infer<typeof createVideoBatchSchema>;
 
 export const createOmniSchema = z.object({
   prompt: z.string().trim().min(1).max(10_000),
