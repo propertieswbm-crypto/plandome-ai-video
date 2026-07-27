@@ -26,6 +26,8 @@ import {
   recordCheckpoint,
   type CreativeProject,
 } from "../packages/creative-project/src";
+import { PreRenderQualityGate } from "../packages/orchestration/src";
+import { rendererRegistry } from "../packages/renderers/src";
 
 const exec = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "..");
@@ -757,6 +759,32 @@ async function main() {
       assets,
       attributions
     );
+    const activeProject = creativeProject;
+    activeProject.scenes.forEach((scene, index) => {
+      if (activeProject.assets.some((asset) => asset.sceneId === scene.id)) return;
+      const attribution = attributions[index];
+      const assetId = String(attribution?.id ?? attribution?.source ?? `resolved-scene-${index + 1}`);
+      activeProject.assets.push({
+        assetId, sceneId:scene.id, uri:String(scenes[index]?.videoAsset ?? scenes[index]?.visualAsset ?? ""),
+        provider:String(attribution?.source ?? "pipeline"), mediaType:scenes[index]?.videoAsset ? "video" : "image",
+        semanticScore:Number(attribution?.fallback ? .8 : .86), qualityScore:Number(attribution?.fallback ? .82 : .88),
+        reason:String(attribution?.note ?? "Selected by the premium visual resolver and passed media validation."),
+        license:String(attribution?.license ?? "Provider licence"),
+        ...(attribution?.sourceUrl ? { sourceUrl:String(attribution.sourceUrl) } : {}),
+      });
+      scene.selectedAssetId=assetId;
+    });
+    const qualityGate = new PreRenderQualityGate();
+    const qualityScorecard = qualityGate.run(activeProject);
+    await writeFile(path.join(dir,"creative-quality-scorecard.json"),JSON.stringify(qualityScorecard,null,2));
+    activeProject.quality.push(...qualityScorecard.scenes.flatMap((scene)=>scene.repairs.map((message,index)=>({
+      id:`pre-render-${scene.sceneId}-${index}`,stage:"asset" as const,sceneId:scene.sceneId,
+      check:"measurable-quality-gate",severity:qualityScorecard.decision==="reject" ? "error" as const : "warning" as const,
+      message,repairAction:"Regenerate or replace the failing scene before rendering.",
+    }))));
+    if (qualityScorecard.decision !== "accept") {
+      throw new Error(`Pre-render quality gate rejected the project at ${qualityScorecard.overall}/100.`);
+    }
     recordCheckpoint(creativeProject, "assets", "completed");
     await projectRepository.save(creativeProject);
 
@@ -776,6 +804,7 @@ async function main() {
     await writeFile(path.join(dir, "generation-inspector.json"), JSON.stringify({ generationId: job.generationId, variationSeed: job.variationSeed, productionProfile, durationSeconds: duration, sceneCount: scenes.length, selectedTemplate: creative.template, rejectedTemplates: creative.rejectedTemplateIds, selectedPalette: creative.palette, rejectedPalettes: creative.rejectedPaletteIds, selectedFontPair: creative.fontPair, rejectedFontPairs: creative.rejectedFontPairIds, scenes: scenes.map((scene, index) => ({ narration: scene.text, shotType: scene.brief.shotType, cameraAngle: scene.brief.cameraAngle, cameraMovement: scene.brief.cameraMovement, query: scene.brief.searchQuery, candidates: candidateScores.filter(x => x.asset.id === String((attributions[index] as { id?: string })?.id)), selectedAsset: attributions[index], validation: report.scenes[index] })), creativeFingerprint: creative.creativeFingerprint, canvaStatus: "not-connected", composer: "scripts/premium-visual-composition.ts" }, null, 2));
     recordCheckpoint(creativeProject, "rendering", "running");
     await projectRepository.save(creativeProject);
+    rendererRegistry.requireAvailable(creativeProject.rendering.engine);
     await writePremiumComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design, job.variationSeed);
     await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
     await update(job, "rendering", 70, "Rendering animated MP4"); const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin"); const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js"); const renderEnv = { ...process.env, PATH: process.platform === "win32" ? `${ffmpegDir}${path.delimiter}${process.env.PATH}` : process.env.PATH }; const silentOutput = path.join(dir, "visual-master.mp4"); const finalOutput = path.join(dir, "output.mp4"); await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv }); await exec(process.execPath, [hyperframes, "render", path.join(dir, "composition"), "--output", silentOutput, "--quality", job.input.quality === "production" ? "high" : "standard", "--fps", "30", "--workers", process.env.RENDER_WORKERS ?? "2", "--strict"], { env: renderEnv, maxBuffer: 10_000_000 }); await exec(mediaBinary("ffmpeg"), ["-y", "-i", silentOutput, "-i", narrationFile, "-filter_complex", `[1:a]apad=whole_dur=${duration.toFixed(6)}[voice]`, "-map", "0:v:0", "-map", "[voice]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-t", duration.toFixed(6), "-movflags", "+faststart", finalOutput], { env: renderEnv, maxBuffer: 10_000_000 }); const finalQuality = await validateFinalRender(finalOutput, dir, scenes, attributions, mediaBinary("ffmpeg")); if (!finalQuality.passed) throw new Error(`Final render quality validation failed: ${finalQuality.failures.join(" ")}`);

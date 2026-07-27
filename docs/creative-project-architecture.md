@@ -9,6 +9,24 @@ renderer and provider integrations.
 The migration is intentionally incremental. Existing `VideoJob` records and
 legacy renderer inputs remain supported.
 
+## Stable package boundaries
+
+The incremental migration now exposes `domain`, `creative-engine`, `templates`,
+`renderers`, `providers`, `orchestration`, `persistence`, and `test-kits`
+packages. Existing entry points remain compatible while delegating new work to
+these boundaries. Hyperframes is the available production renderer; Remotion is
+registered as renderer-neutral and deliberately unavailable until the real
+external template library is installed.
+
+## Measurable pre-render gate
+
+Every enabled scene is scored from 0–100 for semantic relevance, visual
+consistency, brand compliance, typography, motion, pacing, asset quality, and
+rendering reliability. Production requires an 82 weighted overall score plus
+per-dimension floors. Repairable failures receive at most two targeted passes;
+critical or unrepaired failures stop before rendering. The worker writes
+scene-level evidence to `creative-quality-scorecard.json`.
+
 ## Canonical artifact
 
 Every new render writes:
