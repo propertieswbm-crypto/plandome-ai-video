@@ -213,14 +213,14 @@ button, input { font: inherit; }
 .button:disabled { cursor: not-allowed; opacity: .48; transform: none; }
 
 @media (max-width: 900px) {
-  .generator-header { align-items: flex-start; }
+  .app-shell { grid-template-columns: 76px minmax(0, 1fr); }  .sidebar { padding-inline: 12px; }  .sidebar .brand-name, .sidebar .studio-brand small, .sidebar-health div, .nav-item span { display: none; }  .sidebar .brand, .nav-item { justify-content: center; }  .sidebar-health { justify-content: center; padding-inline: 0; }  .generator-header { align-items: flex-start; }  .video-studio-grid { grid-template-columns: minmax(0, 1fr); }
   .video-preview-panel { position: static; }
 }
 @media (max-width: 600px) {
-  .generator-header { display: block; }
+  .app-shell { display: block; }  .sidebar { display: none; }  .generator-header { display: block; }
   .generator-runtime { margin-top: 18px; text-align: left; }
   .app-main { padding: 24px 16px 40px; }
-  .studio-panel { padding: 18px; }
+  .studio-panel { padding: 18px; }  .studio-panel-heading, .preview-heading { gap: 12px; }  .studio-panel-heading h2, .preview-heading h2 { font-size: 20px; }  .studio-controls { grid-template-columns: minmax(0, 1fr); }  .avatar-toggle { align-items: flex-start; }  .option-icon { flex: 0 0 38px; }  .toggle-switch { flex: 0 0 38px; }  .button-large { min-height: 50px; height: auto; padding-block: 12px; text-align: center; }  .job-progress div { gap: 12px; }
   .video-empty { min-height: 430px; }
 }
 
