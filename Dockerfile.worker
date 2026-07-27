@@ -31,4 +31,4 @@ RUN node node_modules/hyperframes/dist/cli.js browser ensure
 
 VOLUME ["/app/.data", "/home/worker/.cache"]
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["pnpm", "worker"]
+CMD ["node", "node_modules/tsx/dist/cli.mjs", "scripts/render-daemon.ts"]
