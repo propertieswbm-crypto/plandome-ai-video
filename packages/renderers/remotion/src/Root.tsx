@@ -14,7 +14,7 @@ export const PlandomeVideo:React.FC<RemotionRenderInput>=(input)=>{
   })}{input.narrationPath&&<Audio src={input.narrationPath}/>}</AbsoluteFill>;
 };
 const duration=(input:RemotionRenderInput)=>Math.max(1,Math.ceil(input.project.scenes.reduce((max,scene)=>Math.max(max,scene.start+scene.duration),0)*input.fps));
-export const RemotionRoot:React.FC=()=> <Composition<RemotionRenderInput>
+export const RemotionRoot:React.FC=()=> <Composition
   id="PlandomeVideo" component={PlandomeVideo} width={1080} height={1920} fps={30} durationInFrames={300}
   defaultProps={null as unknown as RemotionRenderInput}
   calculateMetadata={({props})=>({width:props.width,height:props.height,fps:props.fps,durationInFrames:duration(props)})}

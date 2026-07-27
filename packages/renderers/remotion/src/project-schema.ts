@@ -10,7 +10,7 @@ export interface VariationProfile {
   motionIntensity:number; pacingProfile:"measured"|"balanced"|"brisk"; typographyScale:number;
   ctaTreatment:string; safeZoneProfile:"vertical"|"square"|"horizontal"; assetDiversityRules:{maximumRepeats:number;minimumUniqueRatio:number};
 }
-export interface RemotionRenderInput {
+export interface RemotionRenderInput extends Record<string,unknown> {
   project:CreativeProject; exportId:string; variation:VariationProfile;
   sceneMedia:Record<string,string>; narrationPath?:string; musicPath?:string;
   soundEffectPaths?:Record<string,string>; logoPath:string; outputPath:string;
