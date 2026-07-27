@@ -7,7 +7,7 @@ const NAVY="#071a2d",CREAM="#f7f3ea",GOLD="#b9975b";
 export interface SceneProps {scene:CreativeScene;media?:string;logo:string;layout:LayoutId;variation:VariationProfile;sceneIndex:number;}
 export const SafeArea:React.FC<React.PropsWithChildren>=({children})=><div style={{position:"absolute",inset:"7% 6% 11%",overflow:"hidden"}}>{children}</div>;
 export const BrandBug:React.FC<{src:string}>=({src})=><Img src={src} style={{position:"absolute",top:34,left:42,width:230,height:72,objectFit:"contain",zIndex:20}}/>;
-export const ContactFooter=()=> <div style={{position:"absolute",right:42,bottom:34,fontSize:18,letterSpacing:1.5,zIndex:20}}>+44 7835 397683</div>;
+export const ContactFooter=()=> <div style={{position:"absolute",right:42,bottom:34,padding:"12px 18px",background:NAVY,color:CREAM,fontSize:18,letterSpacing:1.5,zIndex:20}}>+44 7835 397683</div>;
 const Media:React.FC<{src?:string;layout:LayoutId;frame:number;duration:number;camera:string}>=({src,layout,frame,duration,camera})=>{
   if(!src)return <div style={{width:"100%",height:"100%",background:`linear-gradient(145deg,${NAVY},#17334c)`}}/>;
   const scale=interpolate(frame,[0,duration],[camera==="slow-pull"?1.08:1.01,camera==="slow-pull"?1.01:1.08],{extrapolateLeft:"clamp",extrapolateRight:"clamp"});
@@ -26,7 +26,7 @@ export const PlandomeScene:React.FC<SceneProps>=({scene,media,logo,layout,variat
     {isFull&&<AbsoluteFill style={{background:"linear-gradient(90deg,rgba(7,26,45,.88),rgba(7,26,45,.12) 75%)"}}/>}
     <BrandBug src={logo}/><SafeArea><div style={{position:"absolute",left:layout==="media-left"?"58%":0,right:layout==="media-right"?"58%":0,top:"30%",opacity:enter,transform:`translateY(${(1-enter)*45}px)`,color:isFull?CREAM:NAVY}}>
       <div style={{color:GOLD,fontWeight:700,fontSize:18,letterSpacing:4,textTransform:"uppercase",marginBottom:22}}>PLANDOME / {scene.beat}</div>
-      <div style={{fontWeight:800,fontSize:Math.round(72*variation.typographyScale),lineHeight:.98,maxWidth:760,letterSpacing:-3}}>{scene.headline}</div>
+      <div style={{fontWeight:800,fontSize:Math.min(64,Math.round(72*variation.typographyScale)),lineHeight:.98,maxWidth:isFull?760:520,letterSpacing:-3,overflowWrap:"anywhere"}}>{scene.headline}</div>
       <div style={{height:5,width:120,background:GOLD,marginTop:30}}/>
     </div></SafeArea>
     <div style={{position:"absolute",left:"8%",right:"8%",bottom:"9%",padding:"15px 24px",background:NAVY,color:CREAM,textAlign:"center",fontSize:28,lineHeight:1.15,maxHeight:"9%",overflow:"hidden"}}>{scene.narration}</div>
