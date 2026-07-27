@@ -25,7 +25,7 @@ RUN pnpm install --frozen-lockfile
 
 COPY --chown=worker:worker . .
 RUN mkdir -p /home/worker/.cache /app/.data \
-    && chown -R worker:worker /home/worker/.cache /app/.data
+    && chown -R worker:worker /home/worker/.cache /app
 USER worker
 RUN node node_modules/hyperframes/dist/cli.js browser ensure
 
