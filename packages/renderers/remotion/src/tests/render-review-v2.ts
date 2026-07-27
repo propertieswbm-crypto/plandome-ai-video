@@ -9,6 +9,10 @@ import {VariationPlanner,visualFingerprint} from "../variation/variation-planner
 const root=path.resolve(import.meta.dirname,"../../../../..");
 const outputDir=path.join(root,"outputs/remotion-review/plandome-extension-ad-v2");
 const project=JSON.parse(await readFile(path.join(root,"packages/test-kits/golden-projects/plandome-extension-ad.json"),"utf8")) as CreativeProject;
+const narrationCuts=[0,3.1815,5.62185,8.82277,11.4526,15.23];
+project.brief.durationSeconds=narrationCuts.at(-1)!;
+project.scenes=project.scenes.map((scene,index)=>({...scene,start:narrationCuts[index]!,duration:narrationCuts[index+1]!-narrationCuts[index]!}));
+project.captions=project.captions.map((caption,index)=>({...caption,start:narrationCuts[index]!,end:narrationCuts[index+1]!}));
 const base=new VariationPlanner().plan(project,"plandome-extension-ad-v2",[],.2);
 const variation:VariationProfile={...base,
   templateSequence:["premium-editorial-property","construction-risk","technical-blueprint","report-review","branded-cta-contact"],
