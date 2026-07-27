@@ -30,7 +30,7 @@ export async function putRemoteObject(objectPath: string, data: BodyInit, conten
 
 export async function getRemoteObject(objectPath: string): Promise<Response | null> {
   const { url, headers } = config();
-  const response = await fetch(`${url}/storage/v1/object/${bucket}/${objectPath}`, { headers, cache: "no-store" });
+  const response = await fetch(`${url}/storage/v1/object/authenticated/${bucket}/${objectPath}`, { headers, cache: "no-store" });
   if (response.status === 404) return null;
   if (!response.ok) throw new Error(`Render storage read failed (${response.status}).`);
   return response;
