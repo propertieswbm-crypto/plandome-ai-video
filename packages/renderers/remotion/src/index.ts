@@ -4,3 +4,4 @@ export * from "./variation/campaign-memory";
 export * from "./templates/registry";
 export * from "./renderer-adapter";
 export * from "./output-validation";
+export * from "./components/PlandomeScene";

@@ -5,6 +5,19 @@ export type ShotSize = "wide" | "medium" | "close" | "detail" | "top" | "low" | 
 export type CameraMove = "static" | "tracking" | "push" | "pull" | "orbit" | "reveal" | "parallax" | "rack-focus";
 export type TrackKind = "video" | "narration" | "music" | "sfx" | "transition" | "caption" | "overlay" | "logo" | "lower-third" | "animation";
 export type PipelineStage = "brief" | "story" | "storyboard" | "art-direction" | "assets" | "timeline" | "rendering" | "quality" | "export";
+export type EditableElementType = "text" | "image" | "video" | "shape" | "logo" | "caption" | "document" | "report" | "blueprint" | "technical-annotation" | "price-badge" | "cta" | "contact-footer" | "gradient" | "line" | "group";
+export type ElementAnimation = "none" | "fade" | "rise" | "slide" | "scale" | "mask-reveal" | "line-reveal" | "document-reveal";
+export interface NormalizedBox { x:number; y:number; width:number; height:number; anchor:"top-left"|"top-center"|"top-right"|"center"|"bottom-left"|"bottom-center"|"bottom-right"; minWidth?:number; minHeight?:number; maxWidth?:number; maxHeight?:number; pin?:Array<"top"|"right"|"bottom"|"left">; }
+export interface MediaTransform { fit:"cover"|"contain"|"fill"; crop:{ x:number;y:number;width:number;height:number }; focalPoint:{ x:number;y:number }; brightness:number; contrast:number; playbackRate:number; muted:boolean; trimStart:number; trimEnd?:number; }
+export interface EditableElement {
+  id:string; type:EditableElementType; name:string; role:string; semanticRole:string;
+  rendererCompatibility:Array<"remotion"|"hyperframes">; visible:boolean; locked:boolean;
+  start:number; end:number; layer:number; box:NormalizedBox; rotation:number; opacity:number;
+  safeZone:{ top:number;right:number;bottom:number;left:number }; aspectOverrides?:Partial<Record<AspectRatio,Partial<NormalizedBox>>>;
+  style:{ fontFamily?:string;fontWeight?:number;fontSize?:number;lineHeight?:number;letterSpacing?:number;textAlign?:"left"|"center"|"right";colour?:string;background?:string;borderRadius?:number;shadow?:string;textTransform?:"none"|"uppercase" };
+  animation:{ type:ElementAnimation;duration:number;delay:number;intensity:number;easing:string };
+  content?:string; assetId?:string; media?:MediaTransform; groupId?:string;
+}
 
 export interface CreativeBrief {
   audience: string;
@@ -143,6 +156,7 @@ export interface CreativeScene {
   regenerationRequested: boolean;
   enabled: boolean;
   selectedAssetId?: string;
+  elements?: EditableElement[];
 }
 
 export interface TimelineClip {
@@ -217,7 +231,7 @@ export interface CreativeProject {
   timeline: TimelineClip[];
   captions: CaptionPhrase[];
   audio: AudioPlan;
-  brand: { name: string; logoUri: string; mandatory: boolean };
+  brand: { name: string; logoUri: string; mandatory: boolean; phoneNumber?:string; colours?:{navy:string;cream:string;white:string;gold:string}; fontFamily?:string; ctaLabel?:string };
   transitions: string[];
   rendering: {
     engine: "hyperframes" | "remotion"; width: number; height: number; fps: number;

@@ -111,6 +111,12 @@ importers:
       '@openvideo/observability':
         specifier: workspace:*
         version: link:../../packages/observability
+      '@openvideo/remotion-renderer':
+        specifier: workspace:*
+        version: link:../../packages/renderers/remotion
+      '@remotion/player':
+        specifier: 4.0.499
+        version: 4.0.499(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@supabase/ssr':
         specifier: ^0.7.0
         version: 0.7.0(@supabase/supabase-js@2.110.6)
@@ -132,6 +138,9 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
+      remotion:
+        specifier: 4.0.499
+        version: 4.0.499(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.6.0

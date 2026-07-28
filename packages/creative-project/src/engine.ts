@@ -200,7 +200,7 @@ export function createCreativeProject(input: {
     cursor += duration;
     return scene;
   });
-  return {
+  const project: CreativeProject = {
     schemaVersion: "1.0", id: input.id, jobId: input.jobId, projectId: input.projectId,
     version: 1, approvalState: "planned", createdAt: now, updatedAt: now, brief,
     story: { sourceScript: input.script, narrativeArc: beats.map((item) => item.beat), beats },
@@ -212,7 +212,7 @@ export function createCreativeProject(input: {
       effects: scenes.map((scene) => ({ sceneId:scene.id, kind:scene.beat === "cta" ? "cta-sting" : "transition", at:scene.start, levelDb:-18 })),
       pronunciation: { Plandome: "Plan-dome" },
     },
-    brand: { name:"Plandome", logoUri:"assets/logo.png", mandatory:true },
+    brand: { name:"Plandome", logoUri:"assets/logo.png", mandatory:true, phoneNumber:"+44 7835 397683", fontFamily:"Montserrat", ctaLabel:"Book your Plandome review", colours:{navy:"#071A2D",cream:"#F5F0E6",white:"#FFFDF8",gold:"#B9975B"} },
     transitions: [...new Set(scenes.map((scene) => scene.transition))],
     rendering: { engine:"hyperframes", width:input.format === "portrait" ? 1080 : 1920, height:input.format === "portrait" ? 1920 : 1080, fps:30, quality:input.quality },
     exports:{}, quality:evaluatePlan(scenes), checkpoints: [
@@ -220,6 +220,7 @@ export function createCreativeProject(input: {
     ].map((stage) => ({ stage:stage as PipelineStage, status:["brief","story","storyboard","art-direction","timeline"].includes(stage) ? "completed" : "pending", attempts:0, inputHash:hash(`${input.script}:${stage}`).toString(16), ...(["brief","story","storyboard","art-direction","timeline"].includes(stage) ? { completedAt:now } : {}) })),
     history:[{ revision:1, timestamp:now, actor:"system", action:"project-created", changes:["brief","story","storyboard","artDirection","timeline"] }],
   };
+  return project;
 }
 
 export function buildTimeline(scenes: CreativeScene[], captions: CaptionPhrase[]): TimelineClip[] {

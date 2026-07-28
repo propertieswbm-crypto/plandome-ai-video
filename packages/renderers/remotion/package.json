@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/index.ts" },
+  "exports": { ".": "./src/index.ts", "./player": "./src/player.ts" },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --max-warnings=0",
