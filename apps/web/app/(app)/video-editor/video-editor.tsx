@@ -75,7 +75,7 @@ export function VideoEditor() {
       <header className="canva-topbar">
         <div className="canva-topbar-brand"><button aria-label="Back"><ChevronLeft size={18} /></button><span className="canva-mark"><Sparkles size={16} /></span><div><strong>Plandome Studio</strong><small>{job ? `Video · ${job.id.slice(0, 8)}` : "Untitled video"}</small></div></div>
         <div className="editor-project-loader"><input value={jobId} onChange={(event) => setJobId(event.target.value)} placeholder="Paste video job ID" aria-label="Video job ID" /><button className="button button-secondary" onClick={() => void load()} disabled={busy || !jobId}>{busy ? <LoaderCircle className="spin" size={16} /> : <Film size={16} />} Load</button></div>
-        <div className="canva-topbar-actions"><button title="Undo"><Undo2 size={17} /></button><span>{status ?? "All changes saved"}</span><button className="canva-share" onClick={() => void save()} disabled={!job || busy}><Save size={15} /> Save</button><button title="Download"><Download size={17} /></button></div>
+        <div className="canva-topbar-actions"><button title="Undo"><Undo2 size={17} /></button><span>{status ?? "All changes saved"}</span><button className="canva-share" onClick={() => void save()} disabled={!job || busy}><Save size={15} /> Save</button>{job?.status === "completed" && <a className="button button-secondary" href={`/api/v1/canva/connect?job=${job.id}`} target="_blank" rel="noreferrer">Open in Canva</a>}<button title="Download"><Download size={17} /></button></div>
       </header>
       <section className="editor-shell canva-shell">
         <nav className="canva-toolrail" aria-label="Editor tools">
