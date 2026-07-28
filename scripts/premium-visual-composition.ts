@@ -138,10 +138,12 @@ export async function writePremiumComposition(
             const features = featureAssignments[index]!;
             const components = sceneComponents[index]!;
             const featureClasses = features.map((feature) => `feature-${feature}`).join(" ");
+            const evidencePrimary = escapeHtml(scene.brief.object || scene.brief.action || "PROJECT EVIDENCE");
+            const evidenceSecondary = escapeHtml(scene.brief.action || scene.brief.environment || "PROFESSIONAL REVIEW");
             const featureAccents = `
                 <div class="template-accents" aria-hidden="true">
-                    <span class="accent-card accent-card-a"></span>
-                    <span class="accent-card accent-card-b"></span>
+                    <span class="accent-card accent-card-a"><small>01</small><b>${evidencePrimary}</b></span>
+                    <span class="accent-card accent-card-b"><small>02</small><b>${evidenceSecondary}</b></span>
                     <span class="accent-rule"></span>
                     <span class="accent-counter">${String(index + 1).padStart(2, "0")} / ${String(scenes.length).padStart(2, "0")}</span>
                 </div>`;
@@ -225,7 +227,6 @@ export async function writePremiumComposition(
                         ${visual}
                     </div>
                     ${scene.kind === "pack" ? "" : `<div class="static-headline">${words}</div>`}
-                    ${scene.captionWords?.length ? "" : `<div class="inline-caption">${escapeHtml(scene.text)}</div>`}
                 </section>`;
         })
         .join("\n");
@@ -244,6 +245,9 @@ export async function writePremiumComposition(
     // that only the active scene's text is present in a rendered frame.
     let captionIndex = 0;
     const captions = scenes.flatMap((scene) => {
+        const narrationKey = scene.text.replace(/[^a-z0-9]/gi, "").toLowerCase();
+        const headlineKey = scene.headline.replace(/[^a-z0-9]/gi, "").toLowerCase();
+        if (!scene.captionWords?.length || narrationKey === headlineKey) return [];
         const words = scene.captionWords ?? [];
         return Array.from({ length: Math.ceil(words.length / 6) }, (_, phraseIndex) => {
             const phrase = words.slice(phraseIndex * 6, phraseIndex * 6 + 6);
@@ -275,7 +279,6 @@ export async function writePremiumComposition(
                     data-track-index="${40 + index}"
                     data-direction="${transDir}"
                 >
-                    <b>PLANDOME</b>
                 </div>`;
         })
         .join("\n");
@@ -419,16 +422,21 @@ export async function writePremiumComposition(
             right: ${logoRight};
             top: ${logoTop};
             bottom: ${logoBottom};
-            width: ${Math.round(290 * logoScale)}px;
-            padding: 12px 16px;
-            background: rgba(255, 253, 248, 0.9);
-            box-shadow: 8px 8px 0 ${palette.accent};
+            width: ${Math.round(260 * logoScale)}px;
+            height: ${Math.round(92 * logoScale)}px;
+            padding: 13px 16px;
+            object-fit: contain;
+            background: rgba(255, 253, 248, 0.96);
+            border-top: 5px solid ${palette.accent};
+            box-shadow: 0 12px 38px rgba(7,26,45,.22);
         }
 
         /* ─── Scene base ─── */
         .scene { position: absolute; inset: 0; overflow: hidden; background-color: ${palette.paper}; }
         .template-accents { position:absolute; inset:0; z-index:3; pointer-events:none; }
-        .accent-card { display:none; position:absolute; width:320px; height:420px; border:10px solid ${palette.secondary}; background:${palette.paper}; box-shadow:18px 22px 48px #0004; }
+        .accent-card { display:none; position:absolute; width:320px; min-height:180px; padding:24px; border:3px solid ${palette.secondary}; background:${palette.ink}E8; color:${palette.paper}; box-shadow:18px 22px 48px #0004; backdrop-filter:blur(16px); }
+        .accent-card small { display:block; margin-bottom:18px; color:${palette.accent}; font-size:17px; font-weight:900; letter-spacing:.16em; }
+        .accent-card b { display:block; font-size:25px; line-height:1.08; text-transform:uppercase; }
         .accent-card-a { left:58px; top:350px; transform:rotate(-5deg); }
         .accent-card-b { right:42px; top:430px; transform:rotate(6deg); }
         .accent-rule { display:none; position:absolute; left:70px; right:70px; top:132px; height:5px; background:${palette.accent}; }
@@ -441,7 +449,7 @@ export async function writePremiumComposition(
         .feature-lower-third .inline-caption { left:56px; right:250px; justify-content:flex-start; text-align:left; border-left:8px solid ${palette.accent}; border-radius:0 16px 16px 0; }
         .feature-kinetic-type .static-headline { font-size:96px; letter-spacing:-.065em; text-transform:uppercase; }
         .feature-cinematic-mask .premium-visual { clip-path:polygon(0 6%,94% 0,100% 92%,7% 100%); border:0; }
-        .feature-floating-cards .accent-card { display:block; width:230px; height:150px; border:2px solid #fff8; background:${palette.ink}DD; backdrop-filter:blur(18px); }
+        .feature-floating-cards .accent-card { display:block; width:260px; min-height:170px; border:2px solid #fff8; background:${palette.ink}E8; backdrop-filter:blur(18px); }
         .feature-media-frame .premium-visual { border:3px solid ${palette.accent}; outline:18px solid ${palette.paper}; outline-offset:-36px; }
         .feature-number-counter .accent-counter, .feature-progress-rail .accent-rule { display:block; }
         .feature-light-leak:after { content:""; position:absolute; inset:-20%; z-index:8; pointer-events:none; background:radial-gradient(circle at 10% 30%,${palette.accent}88,transparent 32%); mix-blend-mode:screen; opacity:.55; }
@@ -742,11 +750,8 @@ export async function writePremiumComposition(
             position: absolute;
             inset: 0;
             z-index: 60;
-            background: ${palette.accent};
-            display: grid;
-            place-items: center;
+            background: linear-gradient(112deg, ${palette.ink} 0 46%, ${palette.accent} 46% 49%, ${palette.paper} 49% 100%);
         }
-        .transition b { font-size: 36px; letter-spacing: 0.18em; color: ${palette.ink}; }
 
         /* ─── Avatar ─── */
         #ella { position: absolute; inset: 0; width: 1080px; height: 1920px; object-fit: cover; z-index: 2; mix-blend-mode: multiply; }
