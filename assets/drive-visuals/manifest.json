@@ -1,16 +1,30 @@
 [
   {
-    "file": "aerial-view.jpg",
-    "id": "1x0hOOFuY9hEzKhazWOAEcw68UbSqSDPs",
-    "title": "Copy of AERIAL VIEW.jpg",
-    "url": "https://drive.google.com/file/d/1x0hOOFuY9hEzKhazWOAEcw68UbSqSDPs/view",
-    "tags": ["aerial", "drone", "property", "planning", "site"]
+    "file": "uk-dormer-finished.jpg",
+    "id": "commons-uk-dormer-finished",
+    "title": "Completed UK tiled roof and dormer",
+    "url": "https://commons.wikimedia.org/wiki/File:Concrete_tile_re-roof_with_UPVC_dormer.jpg",
+    "tags": ["roof", "extension", "dormer", "loft", "transform", "home", "uk", "property"]
   },
   {
-    "file": "victorian-row.jpg",
-    "id": "1CixeoyyyYB1Ff2rDmI7G3xhrUn0Sq_uX",
-    "title": "classic-victorian-houses-in-a-row.jpg",
-    "url": "https://drive.google.com/file/d/1CixeoyyyYB1Ff2rDmI7G3xhrUn0Sq_uX/view",
-    "tags": ["victorian", "street", "houses", "residential", "property"]
+    "file": "uk-dormer-construction.jpg",
+    "id": "commons-uk-dormer-construction",
+    "title": "Dormer and roof construction in East Sussex",
+    "url": "https://commons.wikimedia.org/wiki/File:Dormer_and_roof_construction_-_geograph.org.uk_-_2393101.jpg",
+    "tags": ["rafters", "load", "construction", "dormer", "inspect", "existing", "roof", "uk"]
+  },
+  {
+    "file": "uk-loft-plan.jpg",
+    "id": "commons-uk-house-plan",
+    "title": "UK residential architectural plan",
+    "url": "https://commons.wikimedia.org/wiki/Category:Floor_plans_of_houses_in_the_United_Kingdom",
+    "tags": ["planning", "drawings", "coordinated", "approval", "design", "plan", "uk"]
+  },
+  {
+    "file": "uk-dormer-houses.jpg",
+    "id": "commons-uk-dormer-houses",
+    "title": "English houses with dormer windows",
+    "url": "https://commons.wikimedia.org/wiki/Category:Dormer_windows_in_England",
+    "tags": ["loft", "space", "home", "extension", "dormer", "houses", "england", "uk"]
   }
 ]
