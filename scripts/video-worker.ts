@@ -1018,7 +1018,10 @@ async function main() {
     recordCheckpoint(creativeProject, "rendering", "running");
     await projectRepository.save(creativeProject);
     rendererRegistry.requireAvailable(creativeProject.rendering.engine);
-  await writePremiumComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design, job.variationSeed);
+  await writePremiumComposition(
+    path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design, job.variationSeed,
+    { width: creativeProject.rendering.width, height: creativeProject.rendering.height },
+  );
   await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
   await assertScriptLedRenderer(job.input.script);
   await update(job, "rendering", 70, "Rendering animated MP4");
