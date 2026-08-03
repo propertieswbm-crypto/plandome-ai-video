@@ -91,7 +91,7 @@ export function NarrationStudio() {
     const campaignFamilies = ["authority", "risk", "aspiration", "proof", "urgency"];
     try {
       const campaignId = crypto.randomUUID();
-      const formats = allFormats;
+      const formats = [format, ...allFormats.filter((targetFormat) => targetFormat !== format)];
       const created = await Promise.all(formats.map(async (targetFormat, index) => {
         const response = await fetch("/api/v1/video-jobs", {
           method: "POST",
@@ -204,7 +204,7 @@ export function NarrationStudio() {
           </div>
         </div>}
         <div className="studio-controls studio-controls-variants">
-          <label>Format<select value={format} onChange={(event) => setFormat(event.target.value as "portrait" | "landscape" | "hz" | "sqr")} disabled={busy || generateAllFormats}>
+          <label>Format<select value={format} onChange={(event) => setFormat(event.target.value as "portrait" | "landscape" | "hz" | "sqr")} disabled={busy}>
             <option value="portrait">9:16</option>
             <option value="hz">16:9 (hz)</option>
             <option value="sqr">1:1 (sqr)</option>
