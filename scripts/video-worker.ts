@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createServer } from "node:http";
 import path from "node:path";
 import { promisify } from "node:util";
 import type { VideoJob } from "../apps/web/lib/video/types";
@@ -29,9 +31,76 @@ import {
 import { PreRenderQualityGate } from "../packages/orchestration/src";
 import { rendererRegistry } from "../packages/renderers/src";
 import { VariationPlanner, visualFingerprint } from "../packages/renderers/remotion/src/variation/variation-planner";
+import { selectGoogleDriveVisuals } from "./google-drive-visuals";
+import { directVideoAd } from "./ai-creative-director";
 
 const exec = promisify(execFile);
 const root = path.resolve(import.meta.dirname, "..");
+
+async function assertScriptLedRenderer(script: string) {
+  const renderer = await readFile(
+    path.join(root, "packages/renderers/remotion/src/components/PlandomeScene.tsx"),
+    "utf8",
+  );
+  const source = script.toLowerCase();
+  const campaignPhrases = [
+    "certificate of lawfulness",
+    "building regulations",
+    "council ready",
+    "decision pack",
+    "foundation strategy",
+    "evidence-led application",
+  ];
+  const leaked = campaignPhrases.filter((phrase) => renderer.toLowerCase().includes(phrase) && !source.includes(phrase));
+  if (leaked.length) {
+    throw new Error(`Renderer contains campaign copy that is not present in this script: ${leaked.join(", ")}.`);
+  }
+}
+
+async function startAssetServer(directory: string) {
+  const base = path.resolve(directory);
+  const server = createServer(async (request, response) => {
+    try {
+      const pathname = decodeURIComponent(new URL(request.url ?? "/", "http://127.0.0.1").pathname);
+      const file = path.resolve(base, `.${pathname}`);
+      if (file !== base && !file.startsWith(`${base}${path.sep}`)) {
+        response.writeHead(403).end();
+        return;
+      }
+      const metadata = await stat(file);
+      if (!metadata.isFile()) throw new Error("Not a file");
+      const extension = path.extname(file).toLowerCase();
+      const contentType = extension === ".mp4" ? "video/mp4"
+        : extension === ".mp3" ? "audio/mpeg"
+          : extension === ".wav" ? "audio/wav"
+            : extension === ".png" ? "image/png"
+              : extension === ".jpg" || extension === ".jpeg" ? "image/jpeg"
+                : "application/octet-stream";
+      response.writeHead(200, {
+        "Content-Type": contentType,
+        "Content-Length": metadata.size,
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "public, max-age=3600, immutable",
+      });
+      createReadStream(file).pipe(response);
+    } catch {
+      response.writeHead(404).end();
+    }
+  });
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+  const address = server.address();
+  if (!address || typeof address === "string") throw new Error("Asset server did not bind to a TCP port.");
+  return {
+    urlFor(file: string) {
+      const relative = path.relative(base, path.resolve(file)).replaceAll("\\", "/");
+      return `http://127.0.0.1:${address.port}/${relative.split("/").map(encodeURIComponent).join("/")}`;
+    },
+    close: () => new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())),
+  };
+}
 
 function loadEnv() {
   const files = [
@@ -418,6 +487,7 @@ async function main() {
   job.variationSeed ||= hashText(job.input.script).toString(16).padStart(32, "0");
   job.projectId ||= "plandome-company";
   job.input.sceneMediaUrls ||= [];
+  job.input.driveFolderUrl ||= "";
   delete job.error; const dir = jobDirectory(id); const assets = path.join(dir, "composition/assets");
   let creativeProject: CreativeProject | undefined;
   const projectRepository = new CreativeProjectRepository(path.join(root, ".data/video-jobs"));
@@ -456,6 +526,25 @@ async function main() {
       seed: job.variationSeed,
       ...(memory ? { memory } : {}),
     });
+    // Enforce the submitted format at the worker boundary. This keeps persisted
+    // projects and final exports correct even if a stale creative-engine bundle
+    // is loaded by a long-running production worker.
+    const requestedAspectRatio = job.input.format === "sqr"
+      ? "1:1"
+      : job.input.format === "landscape" || job.input.format === "hz"
+        ? "16:9"
+        : "9:16";
+    const requestedDimensions = requestedAspectRatio === "1:1"
+      ? { width: 1080, height: 1080 }
+      : requestedAspectRatio === "16:9"
+        ? { width: 1920, height: 1080 }
+        : { width: 1080, height: 1920 };
+    creativeProject.brief.aspectRatio = requestedAspectRatio;
+    creativeProject.rendering.width = requestedDimensions.width;
+    creativeProject.rendering.height = requestedDimensions.height;
+    creativeProject.brief.constraints = creativeProject.brief.constraints
+      .filter((constraint) => !/^Respect (?:vertical|horizontal|square) safe zones\.$/.test(constraint));
+    creativeProject.brief.constraints.push(`Respect ${requestedAspectRatio === "1:1" ? "square" : requestedAspectRatio === "16:9" ? "horizontal" : "vertical"} safe zones.`);
     creativeProject.audio.narration.uri = "composition/assets/narration.mp3";
     const requestedRenderer = job.input.renderer ?? process.env.VIDEO_RENDERER ?? "hyperframes";
     const selectedRenderer = rendererRegistry.select(
@@ -480,6 +569,25 @@ async function main() {
     await saveVideoJob(job);
     let editorPreferences:EditorPreferences|undefined; try { const feedback=JSON.parse(await readFile(path.join(root,".data/editor-feedback.json"),"utf8")) as {projectId?:string;preferences?:EditorPreferences}; if(feedback.projectId===job.projectId) editorPreferences=feedback.preferences; } catch { /* No editor feedback has been saved yet. */ }
     const seed = Number.parseInt(job.variationSeed.slice(0, 8), 16); const history = await readGenerationHistory(root, job.projectId); const creative = selectCreative({ generationId: job.generationId, variationSeed: job.variationSeed, projectId: job.projectId }, history, lines.length); const timings = alignment ? alignedSceneTimes(job.input.script, lines, alignment, duration) : weightedSceneTimes(lines, duration); const words = alignment ? alignedWords(alignment) : []; const scenes: PlannedScene[] = lines.map((line, index) => { const canonical = creativeProject!.scenes[index]!; const context = index > 0 ? `${lines[index - 1]} ${line}` : line; const brief = createVisualBrief(context, index + seed, lines.length, duration); brief.sentence = line; brief.cameraMovement = canonical.camera.move === "push" ? "push-in" : canonical.camera.move === "pull" ? "push-out" : canonical.camera.move === "parallax" ? "parallax" : canonical.camera.move === "tracking" ? "dolly" : canonical.camera.move === "orbit" ? "pan-right" : canonical.camera.move === "reveal" ? "pan-left" : canonical.camera.move === "rack-focus" ? "tilt" : "dolly"; brief.cameraAngle = canonical.camera.angle; const timing = timings[index]!; Object.assign(canonical, timing); return { text: line, headline: canonical.headline || headline(line, index, lines.length), ...timing, captionWords: words.filter((word) => word.start >= timing.start - .03 && word.start < timing.start + timing.duration), kind: sceneKind(context, index, lines.length, job.input.useAvatar), brief }; });
+    await update(job, "planning", 32, "AI Creative Director reviewing ad quality");
+    const directorReport = await directVideoAd(job.input.script, lines);
+    directorReport.scenes.forEach((direction, index) => {
+      const scene = scenes[index];
+      const canonical = creativeProject!.scenes[index];
+      if (!scene || !canonical) return;
+      scene.headline = direction.headline || scene.headline;
+      canonical.headline = scene.headline;
+      if (direction.visualQuery) scene.brief.searchQuery = direction.visualQuery;
+    });
+    await writeFile(path.join(dir, "ai-creative-director.json"), JSON.stringify(directorReport, null, 2));
+    creativeProject.quality.push({
+      id: "ai-director-preflight",
+      stage: "plan",
+      check: "ad-effectiveness",
+      severity: "warning",
+      message: `AI Creative Director: ${directorReport.overall}/100. ${directorReport.rationale}`,
+      repairAction: directorReport.decision === "repair" ? "Apply scene-level headline and visual-query repairs before asset selection." : "None",
+    });
     creativeProject.captions = phraseCaptions(creativeProject, words);
     recordCheckpoint(creativeProject, "storyboard", "completed");
     await projectRepository.save(creativeProject);
@@ -502,6 +610,9 @@ async function main() {
       source: `generated:plandome-composition:${index}`,
       license: "Original Plandome composition"
     }));
+    const driveVisuals = job.input.driveFolderUrl
+      ? await selectGoogleDriveVisuals(job.input.driveFolderUrl, lines, job.input.format === "portrait")
+      : [];
     const candidateScores: ScoredGalleryAsset[] = [];
     void history;
     const usedPremiumAssetPaths = new Set<string>();
@@ -517,6 +628,7 @@ async function main() {
     const usedDriveVisualIds = new Set<string>();
     const canUseRemoteMedia = await remoteMediaAvailable();
     await hydratePreviousSceneVisuals(id, job.input.script, assets, seed, scenes.length);
+    const existingAssetNames = new Set(await readdir(assets).catch(() => [] as string[]));
     if (!canUseRemoteMedia) {
       console.warn("Remote media providers are unreachable. Skipping network retries and using deterministic premium motion.");
     }
@@ -555,7 +667,90 @@ async function main() {
         continue;
       }
 
+      const driveVisual = driveVisuals[index];
+      if (driveVisual) {
+        const extension = driveVisual.mimeType.startsWith("video/")
+          ? ".mp4"
+          : driveVisual.mimeType === "image/png" ? ".png" : ".jpg";
+        const downloadedName = `drive-scene-${index}${extension}`;
+        const downloadedPath = path.join(assets, downloadedName);
+        const response = await fetch(driveVisual.downloadUrl);
+        if (!response.ok) throw new Error(`Google Drive visual ${index + 1} could not be downloaded.`);
+        await writeFile(downloadedPath, Buffer.from(await response.arrayBuffer()));
+        if (driveVisual.mimeType.startsWith("video/")) {
+          scene.videoAsset = downloadedName;
+        } else {
+          const motionName = `drive-scene-${index}.mp4`;
+          await createImageMotionVideo(downloadedPath, path.join(assets, motionName), scene.duration, index);
+          scene.videoAsset = motionName;
+        }
+        attributions[index] = {
+          id: `google-drive:${driveVisual.id}`,
+          title: driveVisual.name,
+          source: "google-drive",
+          sourceUrl: driveVisual.sourceUrl,
+          license: "User supplied through Google Drive",
+          semanticScore: Math.min(1, driveVisual.score / 100),
+          qualityScore: Math.min(1, Math.max(.7, driveVisual.score / 100)),
+          reason: `Selected from Google Drive for scene ${index + 1} using relevance, resolution, orientation and uniqueness scoring.`,
+        };
+        const canonicalAssetId = `drive-${driveVisual.id}`;
+        creativeProject.assets.push({
+          assetId: canonicalAssetId,
+          sceneId: creativeProject.scenes[index]!.id,
+          uri: scene.videoAsset,
+          provider: "google-drive",
+          mediaType: "video",
+          semanticScore: Math.min(1, driveVisual.score / 100),
+          qualityScore: Math.min(1, Math.max(.7, driveVisual.score / 100)),
+          reason: String(attributions[index]!.reason),
+          license: "User supplied",
+          sourceUrl: driveVisual.sourceUrl,
+        });
+        creativeProject.scenes[index]!.selectedAssetId = canonicalAssetId;
+        continue;
+      }
+
       if (["cta", "pack"].includes(scene.kind)) continue;
+
+      const reusableAsset = [
+        `drive-visual-${index}.mp4`,
+        `cached-photographic-${index}.mp4`,
+        `premium-visual-${index}.mp4`,
+        `premium-motion-fallback-${index}.mp4`,
+      ].find((name) => existingAssetNames.has(name));
+      if (reusableAsset) {
+        try {
+          if ((await stat(path.join(assets, reusableAsset))).size >= 50_000) {
+            scene.videoAsset = reusableAsset;
+            const fallback = reusableAsset.startsWith("premium-motion-fallback-");
+            attributions[index] = {
+              id: `retry-cache:${index}:${hashText(scene.text).toString(16)}`,
+              title: `Saved scene visual ${index + 1}`,
+              source: `local-retry-cache:${index}`,
+              sourceUrl: `local-retry-cache:${index}`,
+              license: "Previously validated scene asset",
+              mediaClass: fallback ? "procedural_fallback" : "photographic",
+              fallback,
+              query: scene.brief.searchQuery,
+            };
+            const canonicalAssetId = `retry-cache-${index}`;
+            creativeProject.assets.push({
+              assetId: canonicalAssetId,
+              sceneId: creativeProject.scenes[index]!.id,
+              uri: reusableAsset,
+              provider: "local-retry-cache",
+              mediaType: "video",
+              semanticScore: fallback ? .8 : .9,
+              qualityScore: fallback ? .82 : .9,
+              reason: "Reused the already validated asset from the previous attempt.",
+              license: "Previously validated scene asset",
+            });
+            creativeProject.scenes[index]!.selectedAssetId = canonicalAssetId;
+            continue;
+          }
+        } catch { /* A partial cache entry is ignored and regenerated. */ }
+      }
 
       const driveCandidate = driveVisuals
         .filter((item) => !usedDriveVisualIds.has(item.id))
@@ -823,31 +1018,39 @@ async function main() {
     recordCheckpoint(creativeProject, "rendering", "running");
     await projectRepository.save(creativeProject);
     rendererRegistry.requireAvailable(creativeProject.rendering.engine);
-    await writePremiumComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design, job.variationSeed);
-    await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
-    await update(job, "rendering", 70, "Rendering animated MP4");
+  await writePremiumComposition(path.join(dir, "composition"), scenes, duration, job.input.useAvatar, design, job.variationSeed);
+  await writeCanvaStoryboard(path.join(dir, "composition"), scenes, design);
+  await assertScriptLedRenderer(job.input.script);
+  await update(job, "rendering", 70, "Rendering animated MP4");
     const ffmpegDir = path.join(root, "tools/ffmpeg/ffmpeg-8.1.2-essentials_build/bin");
     const renderEnv = { ...process.env, PATH: process.platform === "win32" ? `${ffmpegDir}${path.delimiter}${process.env.PATH}` : process.env.PATH };
-    const finalOutput = path.join(dir, "output.mp4");
-    if (creativeProject.rendering.engine === "remotion") {
-      const [{ RemotionRendererAdapter },logoBytes] = await Promise.all([
-        import("../packages/renderers/remotion/src/renderer-adapter"),
-        readFile(path.join(root,"apps/web/public/brand/plandome-logo.png")),
+  const finalOutput = path.join(dir, "output.mp4");
+  if (creativeProject.rendering.engine === "remotion") {
+    const assetServer = await startAssetServer(dir);
+    try {
+    const [{ RemotionRendererAdapter },logoBytes] = await Promise.all([
+      import("../packages/renderers/remotion/src/renderer-adapter"),
+      readFile(path.join(root,"apps/web/public/brand/plandome-logo.png")),
       ]);
-      const profile=creativeProject.rendering.variation?.profile;
-      if(!profile)throw new Error("Remotion requires a persisted VariationProfile.");
-      const fileUrl=(file:string)=>`file:///${path.resolve(file).replaceAll("\\","/")}`;
-      await new RemotionRendererAdapter().render({
-        project:creativeProject,exportId:"mp4",variation:profile as never,
-        sceneMedia:Object.fromEntries(creativeProject.scenes.map((scene,index)=>[
-          scene.id,fileUrl(path.join(assets,scenes[index]?.videoAsset??scenes[index]?.visualAsset??"")),
-        ]).filter(([,uri])=>!String(uri).endsWith("/assets/"))),
-        narrationPath:fileUrl(narrationFile),logoPath:`data:image/png;base64,${logoBytes.toString("base64")}`,
+    const profile=creativeProject.rendering.variation?.profile;
+    if(!profile)throw new Error("Remotion requires a persisted VariationProfile.");
+    await new RemotionRendererAdapter().render({
+      project:creativeProject,exportId:"mp4",variation:profile as never,
+      sceneMedia:Object.fromEntries(creativeProject.scenes.flatMap((scene,index)=>{
+        const assetName=scenes[index]?.videoAsset??scenes[index]?.visualAsset
+          ??scenes.slice(0,index).reverse().map(item=>item.videoAsset??item.visualAsset).find(Boolean)
+          ??scenes.map(item=>item.videoAsset??item.visualAsset).find(Boolean);
+        return assetName ? [[scene.id,assetServer.urlFor(path.join(assets,assetName))]] : [];
+      })),
+      narrationPath:assetServer.urlFor(narrationFile),logoPath:`data:image/png;base64,${logoBytes.toString("base64")}`,
         outputPath:finalOutput,width:creativeProject.rendering.width,height:creativeProject.rendering.height,
         fps:creativeProject.rendering.fps,codec:"h264",quality:creativeProject.rendering.quality,
-        renderingSeed:creativeProject.rendering.variation.seed,contentHash:creativeProject.rendering.variation.fingerprint,
-      },{onProgress:(progress)=>{job.progress=70+Math.round(progress*20);}});
-    } else {
+      renderingSeed:creativeProject.rendering.variation.seed,contentHash:creativeProject.rendering.variation.fingerprint,
+    },{onProgress:(progress)=>{job.progress=70+Math.round(progress*20);}});
+    } finally {
+      await assetServer.close();
+    }
+  } else {
       const hyperframes = path.join(root, "node_modules/hyperframes/dist/cli.js");
       const silentOutput = path.join(dir, "visual-master.mp4");
       await exec(process.execPath, [hyperframes, "lint", path.join(dir, "composition")], { env: renderEnv });
@@ -883,4 +1086,12 @@ async function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) void main();
+if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.meta.filename)) {
+  void main().then(
+    () => process.exit(0),
+    (error) => {
+      process.stderr.write(`${error instanceof Error ? error.stack ?? error.message : String(error)}\n`);
+      process.exit(1);
+    },
+  );
+}
