@@ -87,7 +87,7 @@ export function NarrationStudio() {
     setError(undefined);
     setJob(undefined);
     setJobs([]);
-    const allFormats: Array<"portrait" | "landscape" | "hz" | "sqr"> = ["portrait", "landscape", "hz", "sqr"];
+    const allFormats: Array<"portrait" | "hz" | "sqr"> = ["portrait", "hz", "sqr"];
     const campaignFamilies = ["authority", "risk", "aspiration", "proof", "urgency"];
     try {
       const campaignId = crypto.randomUUID();
@@ -206,7 +206,6 @@ export function NarrationStudio() {
         <div className="studio-controls studio-controls-variants">
           <label>Format<select value={format} onChange={(event) => setFormat(event.target.value as "portrait" | "landscape" | "hz" | "sqr")} disabled={busy || generateAllFormats}>
             <option value="portrait">9:16</option>
-            <option value="landscape">16:9</option>
             <option value="hz">16:9 (hz)</option>
             <option value="sqr">1:1 (sqr)</option>
           </select></label>
