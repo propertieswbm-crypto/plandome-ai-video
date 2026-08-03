@@ -208,7 +208,7 @@ export function NarrationStudio() {
             <option value="portrait">9:16</option>
             <option value="landscape">16:9</option>
             <option value="hz">16:9 (hz)</option>
-            <option value="sqr">1:1</option>
+            <option value="sqr">1:1 (sqr)</option>
           </select></label>
           <label><input type="checkbox" checked={generateAllFormats} onChange={(event) => setGenerateAllFormats(event.target.checked)} disabled={busy} /> All formats</label>
           <label>Quality<select value={quality} onChange={(event) => setQuality(event.target.value as "preview" | "production")} disabled={busy}><option value="preview">Fast</option><option value="production">Premium</option></select></label>
