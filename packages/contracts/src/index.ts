@@ -31,12 +31,16 @@ export type CreateNarrationInput = z.infer<typeof createNarrationSchema>;
 
 export const createVideoJobSchema = z.object({
   script: z.string().trim().min(20).max(3_000),
-  format: z.enum(["portrait", "landscape"]).default("portrait"),
+  format: z.enum(["portrait", "landscape", "hz", "sqr"]).default("portrait"),
   quality: z.enum(["preview", "production"]).default("preview"),
   useAvatar: z.boolean().default(true),
   sceneMediaUrls: z.array(
     z.union([z.url({ protocol: /^https?$/ }), z.literal("")])
   ).max(30).default([]),
+  driveFolderUrl: z.union([
+    z.url({ protocol: /^https$/ }).refine((value) => /(^|\.)drive\.google\.com$/i.test(new URL(value).hostname), "Use a Google Drive link."),
+    z.literal(""),
+  ]).default(""),
   renderer: z.enum(["hyperframes","remotion"]).default("hyperframes"),
   campaignId: z.string().trim().min(1).max(120).optional(),
   campaignFamily: z.string().trim().min(1).max(120).optional(),
