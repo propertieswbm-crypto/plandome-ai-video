@@ -102,7 +102,7 @@ export function NarrationStudio() {
             quality,
             useAvatar,
             sceneMediaUrls: sceneMediaUrls.filter((url) => url.trim()),
-            driveFolderUrl,
+            ...(driveFolderUrl.trim() ? { driveFolderUrl: driveFolderUrl.trim() } : {}),
             renderer: "remotion",
             allowRendererFallback: false,
             campaignId,
