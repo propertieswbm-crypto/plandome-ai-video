@@ -18,7 +18,29 @@ function title(text: string) {
   return words.join(" ");
 }
 
-export function interpretBrief(script: string, format: "portrait" | "landscape", durationSeconds: number): CreativeBrief {
+export type CreativeFormat = "portrait" | "landscape" | "hz" | "sqr";
+type RenderFormat = CreativeFormat;
+
+const aspectRatioForFormat = (format: RenderFormat): CreativeBrief["aspectRatio"] => {
+  if (format === "landscape" || format === "hz") return "16:9";
+  if (format === "sqr") return "1:1";
+  return "9:16";
+};
+
+const renderingDimensionsForFormat = (format: RenderFormat) => {
+  const aspectRatio = aspectRatioForFormat(format);
+  return aspectRatio === "16:9" ? { width: 1920, height: 1080 }
+    : aspectRatio === "1:1" ? { width: 1080, height: 1080 }
+      : { width: 1080, height: 1920 };
+};
+
+const safeZoneDescription = (format: RenderFormat) => {
+  if (format === "sqr") return "Respect square safe zones.";
+  if (format === "landscape" || format === "hz") return "Respect horizontal safe zones.";
+  return "Respect vertical safe zones.";
+};
+
+export function interpretBrief(script: string, format: RenderFormat, durationSeconds: number): CreativeBrief {
   const property = includes(script, /loft|roof/) ? "Victorian or period UK loft" :
     includes(script, /commercial|office|shop|retail/) ? "UK commercial property" :
     includes(script, /extension|house|home|property/) ? "UK residential property" : undefined;
@@ -38,7 +60,7 @@ export function interpretBrief(script: string, format: "portrait" | "landscape",
     urgency: includes(script, /now|today|before|risk|cost|delay/) ? "high" : "medium",
     cta: ctaMatch ?? "Speak with Plandome",
     durationSeconds,
-    aspectRatio: format === "landscape" ? "16:9" : "9:16",
+    aspectRatio: aspectRatioForFormat(format),
     visualStyle: property ? "premium architectural documentary" : "premium editorial commercial",
     contentCategory: property ? "property and planning" : "professional services",
     ...(property ? { propertyType: property } : {}),
@@ -46,7 +68,7 @@ export function interpretBrief(script: string, format: "portrait" | "landscape",
     ...(construction ? { constructionCategory: construction } : {}),
     ...(commercial ? { commercialCategory: commercial } : {}),
     claims,
-    constraints: ["Plandome logo required", "UK context required", "No generic or irrelevant property imagery", "Respect vertical safe zones"],
+    constraints: ["Plandome logo required", "UK context required", "No generic or irrelevant property imagery", safeZoneDescription(format)],
   };
 }
 
@@ -149,11 +171,12 @@ export function compileArtDirection(brief: CreativeBrief, seed: string): ArtDire
 
 export function createCreativeProject(input: {
   id: string; jobId: string; projectId: string; script: string; segments: string[];
-  durationSeconds: number; format: "portrait" | "landscape"; quality: "preview" | "production";
+  durationSeconds: number; format: CreativeFormat; quality: "preview" | "production";
   seed: string; memory?: CreativeMemory;
 }): CreativeProject {
   const now = new Date().toISOString();
   const brief = interpretBrief(input.script, input.format, input.durationSeconds);
+  const { width, height } = renderingDimensionsForFormat(input.format);
   const artDirection = compileArtDirection(brief, input.seed);
   const rawDurations = input.segments.map((text) => Math.max(1, text.length));
   const totalWeight = rawDurations.reduce((sum, value) => sum + value, 0);
@@ -192,7 +215,11 @@ export function createCreativeProject(input: {
         ...(brief.propertyType ? { architecture: brief.propertyType } : {}),
         mustInclude: brief.propertyType ? ["UK context", ...item.narration.toLowerCase().split(/\W+/).filter((word) => word.length > 6).slice(0,3)] : [],
         mustExclude: ["generic stock aesthetic", "wrong country", "logos from other brands", "low resolution", "duplicate composition"],
-        minimumWidth: input.format === "portrait" ? 1080 : 1920, minimumHeight: input.format === "portrait" ? 1920 : 1080,
+        ...(input.format === "sqr"
+          ? { minimumWidth: 1080, minimumHeight: 1080 }
+          : input.format === "landscape" || input.format === "hz"
+            ? { minimumWidth: 1920, minimumHeight: 1080 }
+            : { minimumWidth: 1080, minimumHeight: 1920 }),
       }],
       templateId: template.id, start: cursor, duration, locked: false, approved: false,
       regenerationRequested: false, enabled: true,
@@ -214,7 +241,7 @@ export function createCreativeProject(input: {
     },
     brand: { name:"Plandome", logoUri:"assets/logo.png", mandatory:true, phoneNumber:"+44 7835 397683", fontFamily:"Montserrat", ctaLabel:"Book your Plandome review", colours:{navy:"#071A2D",cream:"#F5F0E6",white:"#FFFDF8",gold:"#B9975B"} },
     transitions: [...new Set(scenes.map((scene) => scene.transition))],
-    rendering: { engine:"hyperframes", width:input.format === "portrait" ? 1080 : 1920, height:input.format === "portrait" ? 1920 : 1080, fps:30, quality:input.quality },
+    rendering: { engine:"hyperframes", width, height, fps:30, quality:input.quality },
     exports:{}, quality:evaluatePlan(scenes), checkpoints: [
       "brief","story","storyboard","art-direction","assets","timeline","rendering","quality","export",
     ].map((stage) => ({ stage:stage as PipelineStage, status:["brief","story","storyboard","art-direction","timeline"].includes(stage) ? "completed" : "pending", attempts:0, inputHash:hash(`${input.script}:${stage}`).toString(16), ...(["brief","story","storyboard","art-direction","timeline"].includes(stage) ? { completedAt:now } : {}) })),
