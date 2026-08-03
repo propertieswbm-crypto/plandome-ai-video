@@ -101,7 +101,7 @@ export function NarrationStudio() {
             format: targetFormat,
             quality,
             useAvatar,
-            sceneMediaUrls,
+            sceneMediaUrls: sceneMediaUrls.filter((url) => url.trim()),
             driveFolderUrl,
             renderer: "remotion",
             allowRendererFallback: false,
