@@ -1,20 +1,22 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { NarrationStudio } from "./narration-studio";
 
-export const metadata: Metadata = { title: "AI Video Generator" };
+export const metadata: Metadata = { title: "Create Video" };
 
 export default function AiVideoPage() {
   return (
     <>
-      <header className="generator-header">
+      <header className="generator-header studio-generator-header">
         <div>
-          <div className="generator-status"><span /> Production studio online</div>
-          <h1>Create a publish-ready video</h1>
-          <p>Turn one script into a complete Plandome advert with matched UK visuals, narration, captions and motion.</p>
+          <div className="generator-status"><span /> AI DIRECTOR / ONLINE</div>
+          <h1>Imagine it.<br /><em>Direct it.</em></h1>
         </div>
-        <div className="generator-runtime"><span>Cloud rendering</span><strong>24/7</strong></div>
+        <div className="generator-runtime"><span>Creative engine</span><strong>Studio 01</strong><i>Ready to render</i></div>
       </header>
-      <NarrationStudio />
+      <Suspense fallback={<div className="studio-loading" aria-label="Loading studio" />}>
+        <NarrationStudio />
+      </Suspense>
     </>
   );
 }
