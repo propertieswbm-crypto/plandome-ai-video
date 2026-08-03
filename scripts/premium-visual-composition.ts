@@ -71,7 +71,8 @@ export async function writePremiumComposition(
     duration: number,
     useAvatar: boolean,
     design: DesignProfile,
-    varietySeed?: string
+    varietySeed?: string,
+    dimensions: { width: number; height: number } = { width: 1080, height: 1920 },
 ): Promise<void> {
     const seed = varietySeed || design.generationId;
     const visualIdentity = createCompositionIdentity(seed, scenes.length);
@@ -397,7 +398,7 @@ export async function writePremiumComposition(
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=1080">
+    <meta name="viewport" content="width=${dimensions.width}">
     <title>Plandome Premium Video — ${design.template}</title>
     <style>
         @font-face { font-family: "${visualIdentity.globalStyle.fontPair.heading}"; src: local("${visualIdentity.globalStyle.fontPair.heading}"); font-weight: 100 900; }
@@ -407,8 +408,8 @@ export async function writePremiumComposition(
         body { margin: 0; overflow: hidden; font-family: "${visualIdentity.globalStyle.fontPair.body}", sans-serif; }
         #root {
             position: relative;
-            width: 1080px;
-            height: 1920px;
+            width: ${dimensions.width}px;
+            height: ${dimensions.height}px;
             overflow: hidden;
             background: ${palette.paper};
             color: ${palette.ink};
@@ -596,7 +597,7 @@ export async function writePremiumComposition(
             height: 100%;
             object-fit: cover;
         }
-        .broll { position: absolute; inset: 0; width: 1080px; height: 1920px; object-fit: cover; z-index: 1; }
+        .broll { position: absolute; inset: 0; width: ${dimensions.width}px; height: ${dimensions.height}px; object-fit: cover; z-index: 1; }
         .video-overlay-gradient {
             position: absolute;
             inset: 0;
@@ -754,7 +755,7 @@ export async function writePremiumComposition(
         }
 
         /* ─── Avatar ─── */
-        #ella { position: absolute; inset: 0; width: 1080px; height: 1920px; object-fit: cover; z-index: 2; mix-blend-mode: multiply; }
+        #ella { position: absolute; inset: 0; width: ${dimensions.width}px; height: ${dimensions.height}px; object-fit: cover; z-index: 2; mix-blend-mode: multiply; }
 
         /* ─── Vignette ─── */
         .scene-vignette { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
@@ -776,8 +777,8 @@ export async function writePremiumComposition(
         data-start="0"
         data-duration="${duration}"
         data-track-index="0"
-        data-width="1080"
-        data-height="1920"
+        data-width="${dimensions.width}"
+        data-height="${dimensions.height}"
         data-fps="30"
     >
         <img class="brand-bug" src="assets/logo.png" alt="Plandome">
