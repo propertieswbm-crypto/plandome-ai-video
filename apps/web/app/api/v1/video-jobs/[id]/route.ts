@@ -10,7 +10,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
   if (!job) return NextResponse.json({ detail: "Video job not found." }, { status: 404 });
   const heartbeatAt = Date.parse(job.updatedAt);
   const heartbeatAgeSeconds = Number.isFinite(heartbeatAt) ? Math.max(0, Math.floor((Date.now() - heartbeatAt) / 1_000)) : 0;
-  const terminal = job.status === "completed" || job.status === "failed" || job.status === "cancelled";
+  const terminal = job.status === "completed" || job.status === "failed";
   const queued = !terminal && (/queu|wait/i.test(job.stage) || job.progress < 10);
   const renderHealth = job.status === "completed" ? "complete" : job.status === "failed" ? "failed" : queued ? "queued" : heartbeatAgeSeconds <= 45 ? "live" : "delayed";
   let queuePosition: number | undefined;
