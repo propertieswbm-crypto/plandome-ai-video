@@ -994,7 +994,7 @@ async function main() {
           continue;
         }
 
-        const repairedName = `hmo-quality-repair-${String(index + 1).padStart(2, "0")}.mp4`;
+        const repairedName = `timeline-scene-${String(index + 1).padStart(3, "0")}.mp4`;
         const repairedPath = path.join(assets, repairedName);
         const imageInput = /\.(?:png|jpe?g|webp)$/i.test(selectedSource);
         await exec(mediaBinary("ffmpeg"), [
