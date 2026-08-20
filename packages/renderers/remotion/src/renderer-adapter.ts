@@ -16,7 +16,7 @@ export class RemotionRendererAdapter implements RendererAdapter<RemotionRenderIn
   validate=validateRenderInput;
   async render(input:RemotionRenderInput,options?:{onProgress?:(progress:number)=>void;signal?:AbortSignal}):Promise<RendererArtifact>{
     const publicRoot=path.resolve(import.meta.dirname,"../../../../apps/web/public");
-    if(!input.logoPath||!existsSync(input.logoPath))input.logoPath=path.join(publicRoot,"brand","plandome-logo.png");
+    if(!input.logoPath||(!/^(?:https?:|data:|blob:)/i.test(input.logoPath)&&!existsSync(input.logoPath)))input.logoPath=path.join(publicRoot,"brand","plandome-logo.png");
     for(const scene of input.project.scenes.filter((item)=>item.enabled&&item.beat!=="cta")){
       const media=input.sceneMedia[scene.id];
       if(!media)throw new Error(`Scene ${scene.id} has no resolved topic-matched media.`);
