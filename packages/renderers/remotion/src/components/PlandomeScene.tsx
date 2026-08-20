@@ -1,58 +1,67 @@
-import type React from "react";
-import {AbsoluteFill,Img,interpolate,spring,useCurrentFrame,useVideoConfig} from "remotion";
-import type {CreativeScene} from "../../../../creative-project/src/types";
-import type {LayoutId,VariationProfile} from "../project-schema";
+import React from "react";
+import {AbsoluteFill, Img, OffthreadVideo, interpolate, useCurrentFrame, useVideoConfig} from "remotion";
 
-const NAVY="#071a2d",CREAM="#f7f3ea",GOLD="#b9975b",WHITE="#ffffff",RED="#a34a3c";
-export interface SceneProps {scene:CreativeScene;media?:string;logo:string;layout:LayoutId;variation:VariationProfile;sceneIndex:number;}
-const clamp={extrapolateLeft:"clamp" as const,extrapolateRight:"clamp" as const};
-const Brand:React.FC<{src:string;light?:boolean}>=({src,light})=><div style={{position:"absolute",top:54,left:58,zIndex:30,padding:"13px 18px",background:light?"rgba(247,243,234,.94)":"rgba(255,255,255,.94)",boxShadow:"0 12px 35px rgba(0,0,0,.13)"}}><Img src={src} style={{display:"block",width:190,height:48,objectFit:"contain"}}/></div>;
-const Eyebrow:React.FC<React.PropsWithChildren<{colour?:string}>>=({children,colour=GOLD})=><div style={{color:colour,fontSize:26,fontWeight:700,letterSpacing:5,textTransform:"uppercase",marginBottom:28}}>{children}</div>;
-const Caption:React.FC<{text:string;dark?:boolean}>=({text,dark=true})=><div style={{position:"absolute",left:70,right:70,bottom:92,zIndex:40,display:"flex",justifyContent:"center"}}><div style={{padding:"18px 30px",background:dark?"rgba(7,26,45,.94)":"rgba(247,243,234,.94)",color:dark?CREAM:NAVY,fontSize:44,fontWeight:600,lineHeight:1.12,textAlign:"center",boxShadow:"0 14px 45px rgba(0,0,0,.22)"}}>{text}</div></div>;
-const Photo:React.FC<{src?:string;scale:number;position?:string}>=({src,scale,position="center"})=>src?<Img src={src} style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:position,transform:`scale(${scale})`}}/>:<AbsoluteFill style={{background:NAVY}}/>;
-const Line:React.FC<{x:number;y:number;width:number;progress:number;vertical?:boolean}>=({x,y,width,progress,vertical})=><div style={{position:"absolute",left:x,top:y,width:vertical?2:width*progress,height:vertical?width*progress:2,background:GOLD,opacity:.75}}/>;
+type SceneLike={headline?:string;narration?:string;beat?:string;duration:number;templateId:string};
+export type SceneProps={scene:SceneLike;media?:string;logo?:string;layout?:string;variation?:unknown;sceneIndex:number};
 
-const Hook:React.FC<SceneProps>=({scene,media,logo})=>{
-  const frame=useCurrentFrame(),{durationInFrames}=useVideoConfig(),enter=spring({frame,fps:30,config:{damping:18,stiffness:90}}),scale=interpolate(frame,[0,durationInFrames],[1.02,1.11],clamp);
-  return <AbsoluteFill style={{background:NAVY,fontFamily:"Montserrat,Arial,sans-serif",overflow:"hidden"}}><Photo src={media} scale={scale} position="center 48%"/><AbsoluteFill style={{background:"linear-gradient(90deg,rgba(7,26,45,.94) 0%,rgba(7,26,45,.69) 48%,rgba(7,26,45,.08) 82%)"}}/><Brand src={logo}/><Line x={70} y={340} width={410} progress={enter}/><Line x={70} y={340} width={280} progress={enter} vertical/><div style={{position:"absolute",left:72,top:520,width:850,color:WHITE,opacity:enter,transform:`translateY(${(1-enter)*60}px)`}}><Eyebrow>Plandome / Building Regulations</Eyebrow><div style={{fontSize:112,fontWeight:800,lineHeight:.94,letterSpacing:-5,maxWidth:820}}>Your extension needs the right checks</div><div style={{marginTop:46,fontSize:38,lineHeight:1.25,maxWidth:690,color:"#e8e1d5"}}>Start with clarity before construction begins.</div></div><Caption text={scene.narration}/></AbsoluteFill>;
+const GOLD="#D7B96C";
+const INK="#08080A";
+const WHITE="#FFFDF8";
+const fallbackMedia=["/template-visuals/uk-extension-hero.jpg","/template-visuals/planning-drawings.jpg","/template-visuals/planning-specialist.jpg","/template-visuals/completed-extension.jpg"];
+const clamp=(value:number)=>Math.max(0,Math.min(1,value));
+const headline=(scene:SceneLike)=>String(scene.headline||scene.narration||"Planning clarity for your property").replace(/[.]+$/g,"").trim();
+const wordCount=(scene:SceneLike)=>headline(scene).split(/\s+/).filter(Boolean).length;
+const headlineSize=(scene:SceneLike)=>scene.beat==="hook"?70:wordCount(scene)>7?46:50;
+const isVideo=(src:string)=>/\.(mp4|mov|webm|m4v)(?:[?#]|$)|\/video(?:[/?#]|$)|[?&](?:format|type)=video/i.test(src);
+
+const Media=({src,sceneIndex}:{src:string;sceneIndex:number})=>{
+  const frame=useCurrentFrame();
+  const zoom=1.035+frame*0.0009;
+  const drift=[-1.4,1.2,-.8,.9][sceneIndex%4]!*(frame/180);
+  const style:React.CSSProperties={width:"100%",height:"100%",objectFit:"cover",transform:`translateX(${drift}%) scale(${zoom})`,transformOrigin:["center","left center","right center","center top"][sceneIndex%4]};
+  return isVideo(src)?<OffthreadVideo src={src} muted style={style}/>:<Img src={src} style={style}/>;
 };
 
-const Risk:React.FC<SceneProps>=({scene,media,logo})=>{
-  const frame=useCurrentFrame(),{durationInFrames}=useVideoConfig(),enter=spring({frame,fps:30,config:{damping:16,stiffness:100}}),scale=interpolate(frame,[0,durationInFrames],[1.12,1.03],clamp),line=interpolate(frame,[12,65],[0,1],clamp);
-  return <AbsoluteFill style={{background:NAVY,fontFamily:"Montserrat,Arial,sans-serif",overflow:"hidden"}}><Photo src={media} scale={scale} position="center 55%"/><AbsoluteFill style={{background:"linear-gradient(180deg,rgba(7,26,45,.18),rgba(7,26,45,.93) 76%)"}}/><AbsoluteFill style={{background:"linear-gradient(90deg,rgba(7,26,45,.8),transparent 70%)"}}/><Brand src={logo}/><div style={{position:"absolute",left:70,top:440,width:830,color:WHITE,opacity:enter}}><Eyebrow colour="#d3ab65">Construction risk / inspect first</Eyebrow><div style={{fontSize:104,fontWeight:800,lineHeight:.95,letterSpacing:-4}}>Poor foundations create risk</div></div><div style={{position:"absolute",left:72,top:990,width:920,display:"flex",gap:20}}>{[["01","Load path"],["02","Drainage route"],["03","Existing structure"]].map(([n,t],i)=><div key={t} style={{width:275,padding:"24px 22px",borderTop:`4px solid ${i===0?RED:GOLD}`,background:"rgba(7,26,45,.86)",color:WHITE,opacity:interpolate(line,[i*.18,Math.min(1,i*.18+.55)],[0,1],clamp),transform:`translateY(${(1-line)*25}px)`}}><div style={{fontSize:22,color:GOLD,fontWeight:800}}>{n}</div><div style={{fontSize:30,fontWeight:700,marginTop:8}}>{t}</div></div>)}</div><div style={{position:"absolute",left:72,top:870,width:620,height:3,background:`linear-gradient(90deg,${GOLD} ${line*100}%,transparent 0)`}}/><Caption text={scene.narration}/></AbsoluteFill>;
-};
+const Brand=({src,large=false,progress=1}:{src:string;large?:boolean;progress?:number})=><div style={{position:"absolute",left:"50%",top:large?76:64,transform:`translateX(-50%) scale(${.92+.08*progress})`,width:large?300:244,height:large?92:74,padding:large?14:11,boxSizing:"border-box",background:"rgba(255,255,255,.94)",border:`1px solid rgba(215,185,108,${.45+.35*progress})`,boxShadow:"0 18px 55px rgba(0,0,0,.2)",zIndex:20}}><Img src={src} style={{width:"100%",height:"100%",objectFit:"contain"}}/></div>;
+const Grid=()=> <div style={{position:"absolute",inset:0,opacity:.11,backgroundImage:"linear-gradient(rgba(215,185,108,.45) 1px,transparent 1px),linear-gradient(90deg,rgba(215,185,108,.45) 1px,transparent 1px)",backgroundSize:"72px 72px",maskImage:"linear-gradient(180deg,black,transparent 32%,transparent 70%,black)"}}/>;
+const SceneNumber=({index}:{index:number})=><div style={{position:"absolute",right:48,top:78,color:GOLD,fontSize:18,fontWeight:700,letterSpacing:4,zIndex:20}}>{String(index+1).padStart(2,"0")}</div>;
+const Copy=({scene,reveal,style}:{scene:SceneLike;reveal:number;style?:React.CSSProperties})=><div style={{position:"absolute",overflow:"hidden",...style}}><div style={{fontFamily:"Montserrat, Helvetica Neue, sans-serif",fontSize:headlineSize(scene),fontWeight:800,lineHeight:.96,letterSpacing:-1.5,textTransform:"uppercase",color:WHITE,transform:`translateY(${(1-reveal)*72}px)`,opacity:reveal,textShadow:"0 4px 22px rgba(0,0,0,.42)"}}>{headline(scene)}</div><div style={{width:`${reveal*100}%`,maxWidth:420,height:4,marginTop:26,background:GOLD}}/></div>;
 
-const Technical:React.FC<SceneProps>=({scene,media,logo})=>{
-  const frame=useCurrentFrame(),{durationInFrames}=useVideoConfig(),enter=spring({frame,fps:30,config:{damping:18,stiffness:85}}),scale=interpolate(frame,[0,durationInFrames],[1.02,1.08],clamp),draw=interpolate(frame,[10,72],[0,1],clamp);
-  const labels=[{x:570,y:690,t:"FOUNDATION",w:210},{x:650,y:910,t:"DRAINAGE",w:220},{x:440,y:1170,t:"STRUCTURE",w:300}];
-  return <AbsoluteFill style={{background:CREAM,fontFamily:"Montserrat,Arial,sans-serif",overflow:"hidden"}}><div style={{position:"absolute",inset:"0 0 0 300px",overflow:"hidden"}}><Photo src={media} scale={scale} position="65% center"/><AbsoluteFill style={{background:"rgba(7,26,45,.12)"}}/></div><div style={{position:"absolute",left:0,top:0,bottom:0,width:390,background:NAVY,color:WHITE,padding:"360px 54px 0"}}><Eyebrow>Technical review</Eyebrow><div style={{fontSize:82,fontWeight:800,lineHeight:.96,letterSpacing:-3}}>We inspect the structure</div><div style={{marginTop:42,fontSize:32,lineHeight:1.32,color:"#d7d2c8"}}>Evidence-led checks across the critical details.</div></div><Brand src={logo}/>{labels.map((l,i)=><div key={l.t} style={{position:"absolute",left:l.x,top:l.y,opacity:interpolate(draw,[i*.2,Math.min(1,i*.2+.45)],[0,1],clamp)}}><div style={{display:"flex",alignItems:"center",gap:12}}><div style={{width:16,height:16,borderRadius:"50%",background:GOLD,boxShadow:`0 0 0 8px rgba(185,151,91,.25)`}}/><div style={{height:2,width:l.w*draw,background:GOLD}}/></div><div style={{marginTop:10,padding:"10px 14px",display:"inline-block",background:NAVY,color:WHITE,fontSize:24,fontWeight:800,letterSpacing:2}}>{l.t}</div></div>)}<div style={{position:"absolute",right:65,top:84,padding:"12px 18px",background:CREAM,color:NAVY,fontSize:24,fontWeight:700,opacity:enter}}>DRAWING 03 / TECHNICAL CHECK</div><Caption text={scene.narration}/></AbsoluteFill>;
-};
+const Hook=({scene,media,logo,sceneIndex,reveal,line}:{scene:SceneLike;media:string;logo:string;sceneIndex:number;reveal:number;line:number})=><AbsoluteFill style={{background:INK,overflow:"hidden"}}>
+  <Media src={media} sceneIndex={sceneIndex}/><div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(8,8,10,.08) 32%,rgba(8,8,10,.18) 52%,rgba(8,8,10,.88) 100%)"}}/><Grid/><Brand src={logo} progress={reveal}/><SceneNumber index={sceneIndex}/>
+  <div style={{position:"absolute",left:58,top:230,width:4,height:line*480,background:GOLD,boxShadow:`0 0 24px ${GOLD}`}}/><Copy scene={scene} reveal={reveal} style={{left:82,right:58,bottom:190}}/>
+</AbsoluteFill>;
 
-const Solution:React.FC<SceneProps>=({scene,media,logo})=>{
-  const frame=useCurrentFrame(),enter=spring({frame,fps:30,config:{damping:18,stiffness:80}}),page=interpolate(frame,[0,70],[50,0],clamp);
-  const rows=["Written Technical Review","45-minute Teams Session","Recommended Next Steps"];
-  return <AbsoluteFill style={{background:NAVY,fontFamily:"Montserrat,Arial,sans-serif",overflow:"hidden"}}><div style={{position:"absolute",inset:"0 0 0 43%",overflow:"hidden",clipPath:"polygon(10% 0,100% 0,100% 100%,0 100%)"}}><Photo src={media} scale={1.04} position="center"/><AbsoluteFill style={{background:"linear-gradient(90deg,rgba(7,26,45,.45),transparent 50%)"}}/></div><Brand src={logo}/><div style={{position:"absolute",left:65,top:330,width:560,color:WHITE}}><Eyebrow>Your Decision Pack</Eyebrow><div style={{fontSize:92,fontWeight:800,lineHeight:.96,letterSpacing:-4}}>A clear route forward</div><div style={{marginTop:36,fontSize:34,lineHeight:1.3,color:"#ded8ce"}}>A concise professional review, delivered with practical next steps.</div></div><div style={{position:"absolute",left:65,top:930,width:610,background:CREAM,padding:"42px 40px",boxShadow:"0 28px 80px rgba(0,0,0,.35)",opacity:enter,transform:`translateY(${page}px)`}}><div style={{fontSize:24,color:GOLD,fontWeight:800,letterSpacing:3}}>INCLUDED</div>{rows.map((r,i)=><div key={r} style={{display:"flex",gap:18,alignItems:"center",padding:"25px 0",borderBottom:i<2?"1px solid #d9d1c3":"none"}}><div style={{width:28,height:28,border:`3px solid ${GOLD}`,display:"flex",alignItems:"center",justifyContent:"center",color:NAVY,fontSize:18,fontWeight:900}}>✓</div><div style={{fontSize:31,color:NAVY,fontWeight:700}}>{r}</div></div>)}</div><Caption text={scene.narration}/></AbsoluteFill>;
-};
+const Blueprint=({draw}:{draw:number})=><svg viewBox="0 0 390 1500" style={{position:"absolute",inset:0,width:"100%",height:"100%"}}>
+  <g fill="none" stroke={GOLD} strokeWidth="3" opacity={.82} strokeDasharray="2400" strokeDashoffset={(1-draw)*2400}>
+    <path d="M44 94H340V382H245V565H344V850H238V1090H340V1374H48V1120H138V890H46V610H144V380H44Z"/><path d="M144 96V380M245 96V382M46 610H344M46 850H344M48 1120H340M138 890V1374M238 850V1374"/><path d="M70 176h48v72H70zM270 176h48v72h-48zM76 687h72v96H76zM260 687h56v96h-56zM170 1188h118v122H170z"/>
+  </g><rect x="246" y="386" width="92" height="168" fill="rgba(215,185,108,.08)" stroke={GOLD} strokeWidth="4" opacity={draw}/><path d="M254 520H330" stroke={GOLD} strokeWidth="3" opacity={draw}/><text x="264" y="510" fill={GOLD} fontFamily="Montserrat, sans-serif" fontSize="24" opacity={draw}>2.4m</text>
+</svg>;
 
-const Cta:React.FC<SceneProps>=({scene,media,logo})=>{
-  const frame=useCurrentFrame(),{durationInFrames}=useVideoConfig(),enter=spring({frame,fps:30,config:{damping:18,stiffness:75}}),scale=interpolate(frame,[0,durationInFrames],[1.08,1.02],clamp);
-  return <AbsoluteFill style={{background:NAVY,fontFamily:"Montserrat,Arial,sans-serif",overflow:"hidden"}}><Photo src={media} scale={scale} position="center"/><AbsoluteFill style={{background:"linear-gradient(180deg,rgba(7,26,45,.48),rgba(7,26,45,.97) 68%)"}}/><Brand src={logo}/><div style={{position:"absolute",left:70,right:70,top:370,color:WHITE,textAlign:"center",opacity:enter,transform:`translateY(${(1-enter)*45}px)`}}><Eyebrow>Building Regulations Decision Pack</Eyebrow><div style={{fontSize:118,fontWeight:800,lineHeight:.92,letterSpacing:-5}}>Request Your<br/>Decision Pack</div><div style={{display:"flex",justifyContent:"center",alignItems:"baseline",gap:18,marginTop:45}}><span style={{fontSize:52,color:GOLD,fontWeight:700}}>£</span><span style={{fontSize:102,fontWeight:800}}>99</span></div><div style={{fontSize:34,marginTop:12,color:"#e1dbd0"}}>Written Report + 45-minute Teams Session</div><div style={{display:"inline-block",marginTop:52,padding:"25px 54px",background:GOLD,color:NAVY,fontSize:34,fontWeight:800,letterSpacing:.5}}>REQUEST YOUR DECISION PACK</div><div style={{marginTop:42,fontSize:34,fontWeight:700,letterSpacing:2}}>+44 7835 397683</div></div><Caption text={scene.narration}/></AbsoluteFill>;
-};
+const EvidenceBlueprint=({scene,media,logo,sceneIndex,reveal,draw}:{scene:SceneLike;media:string;logo:string;sceneIndex:number;reveal:number;draw:number})=><AbsoluteFill style={{background:INK,overflow:"hidden"}}>
+  <div style={{position:"absolute",inset:0,right:"34%",overflow:"hidden"}}><Media src={media} sceneIndex={sceneIndex}/></div><div style={{position:"absolute",inset:0,background:"linear-gradient(90deg,rgba(8,8,10,.04) 35%,rgba(8,8,10,.42) 63%,rgba(8,8,10,.96) 76%)"}}/>
+  <div style={{position:"absolute",right:0,top:0,bottom:0,width:"36%",background:"rgba(8,8,10,.84)",borderLeft:"1px solid rgba(215,185,108,.5)",clipPath:`inset(0 0 0 ${(1-draw)*100}%)`}}><Blueprint draw={draw}/></div><Grid/><Brand src={logo} progress={reveal}/><SceneNumber index={sceneIndex}/><Copy scene={scene} reveal={reveal} style={{left:58,width:610,bottom:165}}/>
+</AbsoluteFill>;
 
-export const PlandomeScene:React.FC<SceneProps>=(props)=>{
-  if(props.sceneIndex===0)return <Hook {...props}/>;
-  if(props.sceneIndex===1)return <Risk {...props}/>;
-  if(props.sceneIndex===2)return <Technical {...props}/>;
-  if(props.sceneIndex===3)return <Solution {...props}/>;
-  return <Cta {...props}/>;
+const EvidenceFrame=({scene,media,logo,sceneIndex,reveal,draw,reverse=false}:{scene:SceneLike;media:string;logo:string;sceneIndex:number;reveal:number;draw:number;reverse?:boolean})=><AbsoluteFill style={{background:INK,overflow:"hidden"}}>
+  <Media src={media} sceneIndex={sceneIndex}/><div style={{position:"absolute",inset:0,background:reverse?"linear-gradient(90deg,rgba(8,8,10,.88) 0%,rgba(8,8,10,.28) 58%,rgba(8,8,10,.04) 100%)":"linear-gradient(180deg,rgba(8,8,10,.05) 30%,rgba(8,8,10,.82) 92%)"}}/><Grid/><Brand src={logo} progress={reveal}/><SceneNumber index={sceneIndex}/>
+  <div style={{position:"absolute",left:reverse?54:46,right:reverse?380:46,top:230,bottom:235,borderTop:`2px solid rgba(215,185,108,${draw})`,borderLeft:`2px solid rgba(215,185,108,${draw})`,pointerEvents:"none"}}><div style={{position:"absolute",left:-2,bottom:0,width:150*draw,height:2,background:GOLD}}/><div style={{position:"absolute",right:0,top:-2,width:2,height:150*draw,background:GOLD}}/></div>
+  <Copy scene={scene} reveal={reveal} style={reverse?{left:62,width:560,top:710}:{left:58,right:58,bottom:155}}/>
+</AbsoluteFill>;
+
+const Cta=({scene,media,logo,sceneIndex,reveal,line}:{scene:SceneLike;media:string;logo:string;sceneIndex:number;reveal:number;line:number})=><AbsoluteFill style={{background:INK,overflow:"hidden"}}>
+  <Media src={media} sceneIndex={sceneIndex}/><div style={{position:"absolute",inset:0,background:"linear-gradient(180deg,rgba(8,8,10,.04) 28%,rgba(8,8,10,.2) 51%,rgba(8,8,10,.86) 100%)"}}/><Grid/><Brand src={logo} large progress={reveal}/><SceneNumber index={sceneIndex}/>
+  <div style={{position:"absolute",left:74,right:74,bottom:165,textAlign:"center",opacity:reveal,transform:`translateY(${(1-reveal)*55}px)`}}><div style={{fontFamily:"Montserrat, Helvetica Neue, sans-serif",fontSize:54,fontWeight:800,lineHeight:.96,letterSpacing:-1.5,textTransform:"uppercase",color:WHITE,textShadow:"0 4px 24px rgba(0,0,0,.48)"}}>{headline(scene)}</div><div style={{height:3,width:`${line*100}%`,margin:"30px auto 26px",background:GOLD}}/><div style={{display:"inline-flex",alignItems:"center",justifyContent:"center",minHeight:74,padding:"0 34px",border:`2px solid ${GOLD}`,borderRadius:38,background:"rgba(8,8,10,.62)",color:GOLD,fontFamily:"Montserrat, sans-serif",fontSize:20,fontWeight:800,letterSpacing:1.2}}>+44 7835 397683</div></div>
+</AbsoluteFill>;
+
+export const PlandomeScene:React.FC<SceneProps>=({scene,media,logo,sceneIndex})=>{
+  const frame=useCurrentFrame();const {fps}=useVideoConfig();const durationFrames=Math.max(1,Math.round(scene.duration*fps));
+  const reveal=clamp(interpolate(frame,[3,Math.min(20,durationFrames*.35)],[0,1],{extrapolateLeft:"clamp",extrapolateRight:"clamp"}));
+  const line=clamp(interpolate(frame,[0,Math.min(24,durationFrames*.42)],[0,1],{extrapolateLeft:"clamp",extrapolateRight:"clamp"}));
+  const draw=clamp(interpolate(frame,[5,Math.min(32,durationFrames*.58)],[0,1],{extrapolateLeft:"clamp",extrapolateRight:"clamp"}));
+  const resolvedMedia=media||fallbackMedia[sceneIndex%fallbackMedia.length]!;const resolvedLogo=logo||"/brand/plandome-logo.png";
+  if(scene.beat==="hook"||sceneIndex===0)return <Hook scene={scene} media={resolvedMedia} logo={resolvedLogo} sceneIndex={sceneIndex} reveal={reveal} line={line}/>;
+  if(scene.beat==="cta")return <Cta scene={scene} media={resolvedMedia} logo={resolvedLogo} sceneIndex={sceneIndex} reveal={reveal} line={line}/>;
+  if(sceneIndex%3===1)return <EvidenceBlueprint scene={scene} media={resolvedMedia} logo={resolvedLogo} sceneIndex={sceneIndex} reveal={reveal} draw={draw}/>;
+  return <EvidenceFrame scene={scene} media={resolvedMedia} logo={resolvedLogo} sceneIndex={sceneIndex} reveal={reveal} draw={draw} reverse={sceneIndex%3===0}/>;
 };
-export const PremiumEditorialProperty=PlandomeScene;
-export const TechnicalBlueprint=PlandomeScene;
-export const PlanningDocument=PlandomeScene;
-export const ConstructionRisk=PlandomeScene;
-export const FinancialAppraisal=PlandomeScene;
-export const CaseStudyProof=PlandomeScene;
-export const BeforeAfter=PlandomeScene;
-export const ProcessExplanation=PlandomeScene;
-export const ReportReview=PlandomeScene;
-export const BrandedCta=PlandomeScene;

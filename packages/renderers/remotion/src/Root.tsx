@@ -3,11 +3,13 @@ import {AbsoluteFill,Audio,Composition,Sequence} from "remotion";
 import type {RemotionRenderInput} from "./project-schema";
 import {requireTemplate} from "./templates/registry";
 
+const PRIMARY_TEMPLATE="architectural-editorial-primary";
+
 export const PlandomeVideo:React.FC<RemotionRenderInput>=(input)=>{
   const {project,variation}=input;
   return <AbsoluteFill>{project.scenes.filter((scene)=>scene.enabled).map((scene,index)=>{
     const from=Math.round(scene.start*input.fps),durationInFrames=Math.max(1,Math.round(scene.duration*input.fps));
-    const Template=requireTemplate(variation.templateSequence[index]??"premium-editorial-property").component;
+    const Template=requireTemplate(PRIMARY_TEMPLATE).component;
     return <Sequence key={scene.id} from={from} durationInFrames={durationInFrames} premountFor={Math.min(input.fps,durationInFrames)}>
       <Template scene={scene} media={input.sceneMedia[scene.id]} logo={input.logoPath} layout={variation.layoutSequence[index]??"full-bleed"} variation={variation} sceneIndex={index}/>
     </Sequence>;
