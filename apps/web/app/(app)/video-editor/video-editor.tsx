@@ -10,6 +10,7 @@ type SceneEdit = { id: string; text: string; duration: number; enabled: boolean;
 type Preferences = { captionScale: number; overlayOpacity: number; logoPosition: "top-left" | "top-right" | "bottom-left" | "bottom-right"; logoScale: number; pacing: "measured" | "balanced" | "fast"; notes: string };
 type EditProject = { jobId: string; scenes: SceneEdit[]; preferences: Preferences; revision: number; updatedAt: string };
 const defaults: Preferences = { captionScale: 1, overlayOpacity: .82, logoPosition: "top-left", logoScale: 1, pacing: "balanced", notes: "" };
+const terminalJobStatuses = new Set(["completed", "failed", "cancelled"]);
 const splitScenes = (script: string) => script.match(/[^.!?]+[.!?]?/g)?.map((value) => value.trim()).filter(Boolean) ?? [script];
 const editorTools = [
   [LayoutTemplate, "Design"], [Shapes, "Elements"], [Text, "Text"],
@@ -30,6 +31,18 @@ export function VideoEditor() {
     const id = new URLSearchParams(window.location.search).get("job");
     if (id) { setJobId(id); void load(id); }
   }, []);
+
+  useEffect(() => {
+    if (!jobId || !job || terminalJobStatuses.has(job.status)) return;
+    const timer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`/api/v1/video-jobs/${jobId}`, { cache: "no-store" });
+        if (!response.ok) return;
+        setJob(await response.json() as VideoJob);
+      } catch { /* The next polling interval retries automatically. */ }
+    }, 2_000);
+    return () => window.clearInterval(timer);
+  }, [jobId, job?.status]);
 
   async function load(id = jobId) {
     if (!id) return;
@@ -94,8 +107,9 @@ export function VideoEditor() {
         </aside>
         <div className="editor-preview-panel">
           <div className="canva-canvas-toolbar"><button>Animate</button><button>Position</button><button><SlidersHorizontal size={14} /> Adjust</button><span /><button><ZoomIn size={14} /> 54%</button></div>
+          {job && !terminalJobStatuses.has(job.status) && <div className="job-progress editor-render-progress" aria-live="polite"><div><span>{job.stage}</span><strong>{job.progress}%</strong></div><progress max="100" value={job.progress} /></div>}
           <div className="editor-video-stage">
-            {job?.outputUrl ? <video ref={video} src={job.outputUrl} controls playsInline /> : <div className="editor-placeholder"><Play size={34} /><span>Load a completed video to begin</span></div>}
+            {job?.outputUrl ? <video ref={video} src={job.outputUrl} controls playsInline /> : <div className="editor-placeholder">{job && !terminalJobStatuses.has(job.status) ? <LoaderCircle className="spin" size={34} /> : <Play size={34} />}<span>{job && !terminalJobStatuses.has(job.status) ? job.stage : "Load a completed video to begin"}</span></div>}
             {job?.outputUrl && active?.enabled && <div className="editor-caption-preview" style={{ fontSize: `${Math.round(30 * preferences.captionScale)}px`, background: `rgba(7,11,18,${preferences.overlayOpacity})` }}>{active.text}</div>}
             {job?.outputUrl && <img className={`editor-logo-preview logo-${preferences.logoPosition}`} style={{ transform: `scale(${preferences.logoScale})` }} src="/brand/plandome-logo.png" alt="Plandome" />}
           </div>
