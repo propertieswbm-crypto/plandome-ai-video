@@ -16,7 +16,6 @@ const formatMetadata = {
 
 const rendererStyles = [
   { id: "plandome-fa381-editorial-v1", name: "FA381 Editorial" },
-  { id: "plandome-drive-motion-editorial-v1", name: "Drive Motion Editorial" },
 ] as const;
 type RendererStyleId = typeof rendererStyles[number]["id"];
 

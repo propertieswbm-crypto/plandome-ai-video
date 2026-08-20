@@ -49,7 +49,6 @@ export const createVideoJobSchema = z.object({
   visualFamily: z.enum(["editorial-property","technical-blueprint","planning-document","premium-corporate","case-study","construction-risk","financial-analysis"]).optional(),
   designSystemId: z.enum([
     "plandome-fa381-editorial-v1",
-    "plandome-drive-motion-editorial-v1",
   ]).optional(),
   excludedTemplates: z.array(z.string().trim().min(1)).max(20).default([]),
   allowedTemplates: z.array(z.string().trim().min(1)).max(20).default([]),
