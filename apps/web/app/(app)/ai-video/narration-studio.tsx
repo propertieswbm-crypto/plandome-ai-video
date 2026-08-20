@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Download, ExternalLink, FolderOpen, LoaderCircle, MonitorPlay, Sparkles, UserRound, WandSparkles } from "lucide-react";
+import { Check, Download, ExternalLink, FolderOpen, LoaderCircle, MonitorPlay, Play, Sparkles, UserRound, WandSparkles } from "lucide-react";
 import type { VideoJob } from "@/lib/video/types";
 
 const terminal = new Set(["completed", "failed", "cancelled"]);
