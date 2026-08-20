@@ -969,7 +969,7 @@ async function main() {
 
     // targeted HMO semantic and brightness repair
     const isHmoProject = /\bhmo\b|house in multiple occupation/i.test(
-      [brief.object, ...scenes.map((scene) => JSON.stringify(scene))].join(" ")
+      [job.input.script, ...scenes.map((scene) => JSON.stringify(scene))].join(" ")
     );
     if (isHmoProject) {
       for (const [index, scene] of scenes.entries()) {
