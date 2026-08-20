@@ -610,7 +610,7 @@ async function main() {
       source: `generated:plandome-composition:${index}`,
       license: "Original Plandome composition"
     }));
-    const driveVisuals = job.input.driveFolderUrl
+    const selectedDriveVisuals = job.input.driveFolderUrl
       ? await selectGoogleDriveVisuals(job.input.driveFolderUrl, lines, job.input.format === "portrait")
       : [];
     const candidateScores: ScoredGalleryAsset[] = [];
@@ -667,7 +667,7 @@ async function main() {
         continue;
       }
 
-      const driveVisual = driveVisuals[index];
+      const driveVisual = selectedDriveVisuals[index];
       if (driveVisual) {
         const extension = driveVisual.mimeType.startsWith("video/")
           ? ".mp4"
