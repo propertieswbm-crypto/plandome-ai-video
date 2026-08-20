@@ -10,6 +10,7 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
+      REMOTION_VALIDATED: "true"
       RENDER_WORKERS: "2"
     volumes:
       - render_data:/app/.data
