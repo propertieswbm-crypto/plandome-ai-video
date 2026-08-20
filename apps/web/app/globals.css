@@ -1316,3 +1316,56 @@ body:has(.studio-workspace) .preview-device svg {
   body:has(.studio-workspace) .generator-header { min-height: auto; padding-bottom: 24px; }
   body:has(.studio-workspace) .studio-generator-header h1 { font-size: 44px; }
 }
+
+
+/* Video editor owns the full viewport; never nest it inside the app sidebar grid. */
+body:has(.canva-editor) .app-shell {
+  display: block;
+  min-width: 0;
+}
+
+body:has(.canva-editor) .studio-sidebar {
+  display: none;
+}
+
+body:has(.canva-editor) .studio-main {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  padding: 0;
+  overflow-x: clip;
+}
+
+body:has(.canva-editor) .canva-editor,
+body:has(.canva-editor) .canva-shell {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 1200px) {
+  body:has(.canva-editor) .canva-shell {
+    grid-template-columns: 64px minmax(0, 1fr) 280px;
+  }
+}
+
+@media (max-width: 900px) {
+  body:has(.canva-editor) .canva-shell {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+  body:has(.canva-editor) .canva-shell .editor-preview-panel {
+    grid-column: 2;
+  }
+  body:has(.canva-editor) .canva-shell .editor-inspector {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  body:has(.canva-editor) .canva-topbar {
+    padding: 10px;
+  }
+  body:has(.canva-editor) .editor-project-loader {
+    min-width: 0;
+    width: 100%;
+  }
+}
