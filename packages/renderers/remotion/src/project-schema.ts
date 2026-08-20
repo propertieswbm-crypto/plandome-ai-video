@@ -38,9 +38,13 @@ export function validateRenderInput(input:RemotionRenderInput) {
     if(mediaIdentity&&/premium[-_ ]motion[-_ ]fallback|placeholder|blank|template[-_ ]visual/i.test(mediaIdentity)){
       throw new RemotionInputError("placeholder_scene_media",`Scene ${scene.id} contains prohibited placeholder media.`);
     }
+    const narrationWords=String(scene.narration||"").trim().split(/\s+/).filter(Boolean);
+    const mobileWordLimit=scene.beat==="hook"?7:9;
+    if(String(scene.headline||"").trim().split(/\s+/).filter(Boolean).length>mobileWordLimit){
+      scene.headline=(scene.beat==="cta"?narrationWords.slice(-mobileWordLimit):narrationWords.slice(0,mobileWordLimit)).join(" ");
+    }
     const headline=String(scene.headline||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
     const narration=String(scene.narration||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
     if(headline&&narration&&!narration.includes(headline))throw new RemotionInputError("misaligned_scene_copy",`Scene ${scene.id} headline must be an exact narration phrase.`);
-    if(headline.split(/\s+/).filter(Boolean).length>9)throw new RemotionInputError("oversized_scene_copy",`Scene ${scene.id} headline exceeds the nine-word mobile limit.`);
   }
 }
