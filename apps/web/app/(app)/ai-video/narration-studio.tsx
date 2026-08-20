@@ -1,8 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
-import { Check, Download, FolderOpen, LoaderCircle, MonitorPlay, Play, Sparkles, UserRound, WandSparkles } from "lucide-react";
+import { Check, Download, ExternalLink, FolderOpen, LoaderCircle, MonitorPlay, Sparkles, UserRound, WandSparkles } from "lucide-react";
 import type { VideoJob } from "@/lib/video/types";
 
 const terminal = new Set(["completed", "failed", "cancelled"]);
@@ -87,6 +86,7 @@ export function NarrationStudio() {
   const [jobs, setJobs] = useState<LiveVideoJob[]>([]);
   const [variantCount, setVariantCount] = useState<1 | 3 | 5>(1);
   const [error, setError] = useState<string>();
+  const [canvaTransfer, setCanvaTransfer] = useState<"idle" | "opening">("idle");
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => () => {
@@ -278,7 +278,7 @@ export function NarrationStudio() {
         {job?.status === "completed" && <div className="editor-optional-notice"><strong>Ready</strong><span>Open the editor for scene-level controls.</span></div>}
         {job?.status === "completed" && job.outputUrl ? <div className="video-result">
           <video controls playsInline src={job.outputUrl} />
-          <Link className="button button-primary button-full" href={`/video-editor?job=${job.id}`}><Play size={17} /> Edit</Link>
+          <a className="button button-primary button-full" href={`/api/v1/canva/connect?job=${job.id}`} target="_blank" rel="noreferrer" onClick={() => setCanvaTransfer("opening")}><ExternalLink size={17} /> {canvaTransfer === "opening" ? "Opening Canva..." : "Edit in Canva"}</a>
           <a className="button button-secondary button-full" href={job.outputUrl} download><Download size={17} /> Export</a>
           {job.canvaUrl && <a className="button button-secondary button-full" href={job.canvaUrl} download><Download size={17} /> Download storyboard</a>}
         </div> : <div className="audio-empty video-empty">

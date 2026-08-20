@@ -1,9 +1,8 @@
 import Link from "next/link";
-import { Film, SlidersHorizontal, Sparkles } from "lucide-react";
+import { Film, Sparkles } from "lucide-react";
 
 const nav = [
   { href: "/ai-video", label: "AI Generator", icon: Sparkles },
-  { href: "/video-editor", label: "Video Editor", icon: SlidersHorizontal },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
