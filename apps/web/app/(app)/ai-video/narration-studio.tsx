@@ -13,6 +13,12 @@ const formatMetadata = {
   sqr: { label: "1:1", resolution: "1080 x 1080" },
 } as const;
 
+const rendererStyles = [
+  { id: "plandome-fa381-editorial-v1", name: "FA381 Editorial" },
+  { id: "plandome-drive-motion-editorial-v1", name: "Drive Motion Editorial" },
+] as const;
+type RendererStyleId = typeof rendererStyles[number]["id"];
+
 function previewScenes(value: string) {
   const clean = value.trim().replace(/^[\"â€œâ€]+|[\"â€œâ€]+$/g, "").replace(/\s+/g, " ");
   const sentences = clean.match(/[^.!?]+[.!?]?/g)?.map((part) => part.trim()).filter((part) => /[a-z0-9]/i.test(part)) ?? [];
@@ -52,6 +58,7 @@ export function NarrationStudio() {
   const [useAvatar, setUseAvatar] = useState(true);
   const [sceneMediaUrls, setSceneMediaUrls] = useState<string[]>([]);
   const [driveFolderUrl, setDriveFolderUrl] = useState("");
+  const [designSystemId, setDesignSystemId] = useState<RendererStyleId>(rendererStyles[0].id);
   const [format, setFormat] = useState<"portrait" | "landscape" | "hz" | "sqr">("portrait");
   const [generateAllFormats] = useState(true);
   const [job, setJob] = useState<VideoJob>();
@@ -103,6 +110,7 @@ export function NarrationStudio() {
             useAvatar,
             sceneMediaUrls: sceneMediaUrls.filter((url) => url.trim()),
             ...(driveFolderUrl.trim() ? { driveFolderUrl: driveFolderUrl.trim() } : {}),
+            designSystemId,
             renderer: "remotion",
             allowRendererFallback: false,
             campaignId,
@@ -204,6 +212,9 @@ export function NarrationStudio() {
           </div>
         </div>}
         <div className="studio-controls studio-controls-variants">
+          <label>Design<select value={designSystemId} onChange={(event) => setDesignSystemId(event.target.value as RendererStyleId)} disabled={busy}>
+            {rendererStyles.map((style) => <option key={style.id} value={style.id}>{style.name}</option>)}
+          </select></label>
           <label>Format<select value={format} onChange={(event) => setFormat(event.target.value as "portrait" | "landscape" | "hz" | "sqr")} disabled={busy}>
             <option value="portrait">9:16</option>
             <option value="hz">16:9 (hz)</option>
