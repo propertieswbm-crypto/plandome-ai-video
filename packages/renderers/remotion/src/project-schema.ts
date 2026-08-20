@@ -1,9 +1,10 @@
 import type { CreativeProject } from "../../../creative-project/src/types";
 
 export type VisualFamily="editorial-property"|"technical-blueprint"|"planning-document"|"premium-corporate"|"case-study"|"construction-risk"|"financial-analysis";
+export type ApprovedDesignSystemId="plandome-architectural-editorial-v1"|"plandome-primary-design-reference-v1"|"plandome-hmo-cinematic-reference-v1"|"plandome-extension-technical-reference-v1";
 export type LayoutId="media-left"|"media-right"|"full-bleed"|"lower-zone"|"circular-mask"|"curved-mask"|"document-frame"|"technical-frame"|"split-comparison"|"report-card"|"statistic"|"full-cta"|"property-cta";
 export interface VariationProfile {
-  version:"1.0"; seed:string; dominantVisualFamily:VisualFamily; supportingVisualFamily?:VisualFamily;
+  version:"1.0"; seed:string; dominantVisualFamily:VisualFamily; supportingVisualFamily?:VisualFamily; approvedDesignSystemId?:ApprovedDesignSystemId;
   templateSequence:string[]; layoutSequence:LayoutId[]; textAlignmentSequence:Array<"left"|"center"|"right">;
   headlineTreatmentSequence:string[]; mediaFramingStrategy:string; imageMaskSequence:string[];
   cameraSequence:string[]; transitionSequence:string[]; captionTreatment:string; overlayDensity:number;
@@ -29,8 +30,17 @@ export function validateRenderInput(input:RemotionRenderInput) {
   if(input.variation.templateSequence.length!==input.project.scenes.length) throw new RemotionInputError("invalid_variation","Template sequence must map one-to-one to scenes.");
   for(const scene of input.project.scenes.filter((item)=>item.enabled)){
     const requirement=scene.assetRequirements[0];
-    if(requirement?.media==="video"&&!input.sceneMedia[scene.id]&&scene.beat!=="cta"){
+    const media=input.sceneMedia[scene.id];
+    if(requirement?.media&&!media&&scene.beat!=="cta"){
       throw new RemotionInputError("missing_scene_media",`Scene ${scene.id} requires resolved local media.`);
     }
+    const mediaIdentity=media?.startsWith("data:")?media.slice(0,media.indexOf(",")):media;
+    if(mediaIdentity&&/premium[-_ ]motion[-_ ]fallback|placeholder|blank|template[-_ ]visual/i.test(mediaIdentity)){
+      throw new RemotionInputError("placeholder_scene_media",`Scene ${scene.id} contains prohibited placeholder media.`);
+    }
+    const headline=String(scene.headline||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+    const narration=String(scene.narration||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+    if(headline&&narration&&!narration.includes(headline))throw new RemotionInputError("misaligned_scene_copy",`Scene ${scene.id} headline must be an exact narration phrase.`);
+    if(headline.split(/\s+/).filter(Boolean).length>9)throw new RemotionInputError("oversized_scene_copy",`Scene ${scene.id} headline exceeds the nine-word mobile limit.`);
   }
 }
