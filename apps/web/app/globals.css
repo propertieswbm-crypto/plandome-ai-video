@@ -1369,3 +1369,8 @@ body:has(.canva-editor) .canva-shell {
     width: 100%;
   }
 }
+
+.job-progress small { color: var(--muted); font-size: 12px; }
+.job-progress.render-health-live small, .job-progress.render-health-complete small { color: #1f7655; }
+.job-progress.render-health-delayed small, .job-progress.render-health-failed small { color: #a24f38; }
+.render-queue-list small { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, monospace; }

@@ -7,6 +7,7 @@ import type { VideoJob } from "@/lib/video/types";
 
 const terminal = new Set(["completed", "failed", "cancelled"]);
 const recentJobsKey = "plandome-recent-video-jobs-v1";
+type LiveVideoJob = VideoJob & { heartbeatAgeSeconds?: number; renderHealth?: "queued" | "live" | "delayed" | "complete" | "failed"; queuePosition?: number; queueDepth?: number };
 const formatMetadata = {
   portrait: { label: "9:16", resolution: "1080 x 1920" },
   landscape: { label: "16:9", resolution: "1920 x 1080" },
@@ -19,6 +20,26 @@ const rendererStyles = [
   { id: "plandome-drive-motion-editorial-v1", name: "Drive Motion Editorial" },
 ] as const;
 type RendererStyleId = typeof rendererStyles[number]["id"];
+
+function renderStatus(job: LiveVideoJob) {
+  if (job.renderHealth === "queued") return job.queuePosition
+    ? `Queue position ${job.queuePosition} of ${job.queueDepth ?? job.queuePosition}`
+    : "Safely queued on Hostinger";
+  if (job.renderHealth === "delayed") return "Renderer heartbeat delayed; automatic recovery remains active";
+  const frames = job.stage.match(/Rendering frame ([\d,]+) of ([\d,]+)(?:\s*·\s*(\d+)s elapsed)?/i);
+  if (frames) {
+    const current = Number(frames[1]?.replace(/,/g, "")); const total = Number(frames[2]?.replace(/,/g, "")); const elapsed = Number(frames[3] ?? 0);
+    const remaining = current > 0 && total > current && elapsed > 0 ? Math.round(elapsed * (total - current) / current) : 0;
+    return `${current.toLocaleString()} of ${total.toLocaleString()} frames · ${remaining >= 60 ? `about ${Math.ceil(remaining / 60)} min remaining` : remaining > 0 ? `about ${remaining}s remaining` : "finishing frames"} · live ${job.heartbeatAgeSeconds ?? 0}s ago`;
+  }
+  const percent = job.stage.match(/Rendering frames\s*·\s*(\d+)%\s*·\s*(\d+)s elapsed/i);
+  if (percent) {
+    const complete = Number(percent[1]); const elapsed = Number(percent[2]); const remaining = complete > 0 && complete < 100 ? Math.round(elapsed * (100 - complete) / complete) : 0;
+    return `Hostinger render ${complete}% · ${remaining >= 60 ? `about ${Math.ceil(remaining / 60)} min remaining` : remaining > 0 ? `about ${remaining}s remaining` : "finishing"} · live ${job.heartbeatAgeSeconds ?? 0}s ago`;
+  }
+  if (job.status === "completed") return "Video and editable project are ready";
+  return `Live on Hostinger · ${job.heartbeatAgeSeconds ?? 0}s ago`;
+}
 
 function previewScenes(value: string) {
   const clean = value.trim().replace(/^[\"â€œâ€]+|[\"â€œâ€]+$/g, "").replace(/\s+/g, " ");
@@ -62,8 +83,8 @@ export function NarrationStudio() {
   const [designSystemId, setDesignSystemId] = useState<RendererStyleId>(rendererStyles[0].id);
   const [format, setFormat] = useState<"portrait" | "landscape" | "hz" | "sqr">("portrait");
   const [generateAllFormats] = useState(true);
-  const [job, setJob] = useState<VideoJob>();
-  const [jobs, setJobs] = useState<VideoJob[]>([]);
+  const [job, setJob] = useState<LiveVideoJob>();
+  const [jobs, setJobs] = useState<LiveVideoJob[]>([]);
   const [variantCount, setVariantCount] = useState<1 | 3 | 5>(1);
   const [error, setError] = useState<string>();
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -85,10 +106,10 @@ export function NarrationStudio() {
     try {
       const response = await fetch(`/api/v1/video-jobs/${id}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Could not read render progress.");
-      const next = await readJson<VideoJob>(response);
+      const next = await readJson<LiveVideoJob>(response);
       setError(undefined);
       setJobs((current) => current.some((item) => item.id === id) ? current.map((item) => item.id === id ? next : item) : [...current, next]);
-      if (primary) setJob(next);
+      setJob((current) => primary || current?.id === id ? next : current);
       if (!terminal.has(next.status)) setTimeout(() => void poll(id, primary), 2_000);
     } catch (cause) {
       if (attempt < 3) {
@@ -244,7 +265,7 @@ export function NarrationStudio() {
         <button className="button button-primary button-full button-large" type="button" onClick={generate} disabled={busy || script.trim().length < 20}>
           {busy ? <><LoaderCircle className="spin" size={18} /> {job?.stage || "Generating"}</> : <><Sparkles size={18} /> Generate</>}
         </button>
-        {job && <div className="job-progress" aria-live="polite"><div><span>{job.stage}</span><strong>{job.progress}%</strong></div><progress max="100" value={job.progress} /></div>}
+        {job && <div className={`job-progress render-health-${job.renderHealth ?? "live"}`} aria-live="polite"><div><span>{job.stage}</span><strong>{job.progress}%</strong></div><progress max="100" value={job.progress} /><small>{renderStatus(job)}</small></div>}
       </div>
       <aside className="studio-panel preview-panel video-preview-panel">
         <div className="preview-heading">
@@ -266,11 +287,11 @@ export function NarrationStudio() {
           <p>Create your first video</p>
           <div className="preview-steps"><span>01 · Script</span><span>02 · Generate</span><span>03 · Render</span></div>
         </div>}
-        {jobs.length > 1 && <div className="variant-results">
-          <div className="variant-results-head"><strong>Creative set</strong><span>{jobs.filter((item) => item.status === "completed").length}/{jobs.length} ready</span></div>
+        {jobs.length > 0 && <div className="variant-results render-queue-list">
+          <div className="variant-results-head"><strong>My render queue</strong><span>{jobs.filter((item) => item.status === "queued").length} waiting</span></div>
           {jobs.map((item, index) => <button key={item.id} className={item.id === job?.id ? "active" : ""} onClick={() => setJob(item)}>
             <span>{String(index + 1).padStart(2, "0")}</span>
-            <div><strong>{generateAllFormats ? item.input.format.toUpperCase() : ["Authority", "Risk", "Aspiration", "Proof", "Urgency"][index]}</strong><small>{item.status === "completed" ? "Ready to edit" : item.stage}</small></div>
+            <div><strong>{item.queuePosition ? `Queue ${item.queuePosition}/${item.queueDepth ?? item.queuePosition}` : item.status === "completed" ? "Ready" : item.stage}</strong><small>{item.id}</small></div>
             <i>{item.progress}%</i>
           </button>)}
         </div>}

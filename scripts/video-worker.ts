@@ -1103,6 +1103,7 @@ async function main() {
       ]);
     const profile=creativeProject.rendering.variation?.profile;
     if(!profile)throw new Error("Remotion requires a persisted VariationProfile.");
+    const remotionStartedAt=Date.now(); let lastRemotionSync=0;
     await new RemotionRendererAdapter().render({
       project:creativeProject,exportId:"mp4",variation:profile as never,
       sceneMedia:Object.fromEntries(creativeProject.scenes.flatMap((scene,index)=>{
@@ -1115,7 +1116,12 @@ async function main() {
         outputPath:finalOutput,width:creativeProject.rendering.width,height:creativeProject.rendering.height,
         fps:creativeProject.rendering.fps,codec:"h264",quality:creativeProject.rendering.quality,
       renderingSeed:creativeProject.rendering.variation.seed,contentHash:creativeProject.rendering.variation.fingerprint,
-    },{onProgress:(progress)=>{job.progress=70+Math.round(progress*20);}});
+    },{onProgress:(progress)=>{
+      const now=Date.now();
+      job.progress=70+Math.round(progress*20);
+      job.stage=`Rendering frames · ${Math.round(progress*100)}% · ${Math.max(1,Math.round((now-remotionStartedAt)/1000))}s elapsed`;
+      if(now-lastRemotionSync>=2_000){lastRemotionSync=now;void saveVideoJob(job);}
+    }});
     } finally {
       await assetServer.close();
     }
