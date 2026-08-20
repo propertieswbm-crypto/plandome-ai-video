@@ -5,7 +5,8 @@ import Link from "next/link";
 import { Check, Download, FolderOpen, LoaderCircle, MonitorPlay, Play, Sparkles, UserRound, WandSparkles } from "lucide-react";
 import type { VideoJob } from "@/lib/video/types";
 
-const terminal = new Set(["completed", "failed"]);
+const terminal = new Set(["completed", "failed", "cancelled"]);
+const recentJobsKey = "plandome-recent-video-jobs-v1";
 const formatMetadata = {
   portrait: { label: "9:16", resolution: "1080 x 1920" },
   landscape: { label: "16:9", resolution: "1920 x 1080" },
@@ -71,13 +72,22 @@ export function NarrationStudio() {
     if (timer.current) clearTimeout(timer.current);
   }, []);
 
+  useEffect(() => {
+    const queryIds = new URLSearchParams(window.location.search).get("jobs")?.split(",").filter((id) => /^[a-f0-9-]{36}$/.test(id)) ?? [];
+    let savedIds: string[] = [];
+    try { savedIds = JSON.parse(window.localStorage.getItem(recentJobsKey) ?? "[]") as string[]; } catch { savedIds = []; }
+    const ids = [...new Set([...queryIds, ...savedIds.filter((id) => /^[a-f0-9-]{36}$/.test(id))])].slice(0, 12);
+    if (!ids.length) return;
+    ids.forEach((id, index) => void poll(id, index === 0));
+  }, []);
+
   async function poll(id: string, primary = false, attempt = 0) {
     try {
       const response = await fetch(`/api/v1/video-jobs/${id}`, { cache: "no-store" });
       if (!response.ok) throw new Error("Could not read render progress.");
       const next = await readJson<VideoJob>(response);
       setError(undefined);
-      setJobs((current) => current.map((item) => item.id === id ? next : item));
+      setJobs((current) => current.some((item) => item.id === id) ? current.map((item) => item.id === id ? next : item) : [...current, next]);
       if (primary) setJob(next);
       if (!terminal.has(next.status)) setTimeout(() => void poll(id, primary), 2_000);
     } catch (cause) {
@@ -124,6 +134,11 @@ export function NarrationStudio() {
         return body;
       }));
       setJobs(created);
+      const createdIds = created.map((item) => item.id);
+      window.localStorage.setItem(recentJobsKey, JSON.stringify(createdIds));
+      const monitorUrl = new URL(window.location.href);
+      monitorUrl.searchParams.set("jobs", createdIds.join(","));
+      window.history.replaceState({}, "", monitorUrl);
       setJob(created[0]);
       created.forEach((createdJob, index) => void poll(createdJob.id, index === 0));
     } catch (cause) {
