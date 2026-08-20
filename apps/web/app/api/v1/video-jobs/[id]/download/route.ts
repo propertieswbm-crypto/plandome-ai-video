@@ -12,8 +12,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const job = process.env.VERCEL ? await getRemoteVideoJob(id) : await getVideoJob(id);
   if (!job || job.status !== "completed") return Response.json({ detail: "Video is not ready." }, { status: 404 });
   if (process.env.VERCEL) {
-    const range = request.headers.get("range") ?? undefined;
-    const stored = await getRemoteObject(`outputs/${id}.mp4`, { range });
+    const range = request.headers.get("range");
+    const stored = await getRemoteObject(`outputs/${id}.mp4`, range ? { range } : {});
     if (!stored?.body) return Response.json({ detail: "Video file is not ready." }, { status: 404 });
     const contentLength = stored.headers.get("content-length");
     const contentRange = stored.headers.get("content-range");
