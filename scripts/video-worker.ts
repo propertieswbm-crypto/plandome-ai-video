@@ -507,18 +507,24 @@ async function downloadSceneVideo(source: string, output: string) {
 }
 
 async function createImageMotionVideo(image: string, output: string, duration: number, sceneIndex: number) {
+  const landscape = process.env.PLANDOME_RENDER_FORMAT === "landscape" || process.env.PLANDOME_RENDER_FORMAT === "hz";
+  const sourceWidth = landscape ? 2276 : 1280;
+  const sourceHeight = landscape ? 1280 : 2276;
+  const outputSize = landscape ? "1920x1080" : "1080x1920";
   const frames = Math.max(90, Math.ceil(Math.max(3, duration) * 30));
   const direction = sceneIndex % 2 === 0
     ? "x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'"
     : "x='max(0,iw-iw/zoom-on*0.45)':y='ih/2-(ih/zoom/2)'";
   await exec(mediaBinary("ffmpeg"), [
     "-y", "-loop", "1", "-framerate", "30", "-i", image,
-    "-vf", `scale=1280:2276:force_original_aspect_ratio=increase,crop=1280:2276,zoompan=z='min(zoom+0.0007,1.09)':${direction}:d=1:s=1080x1920:fps=30,eq=contrast=1.04:saturation=0.96,unsharp=5:5:0.3:5:5:0,vignette,format=yuv420p`,
+    "-vf", `scale=${sourceWidth}:${sourceHeight}:force_original_aspect_ratio=increase,crop=${sourceWidth}:${sourceHeight},zoompan=z='min(zoom+0.0007,1.09)':${direction}:d=1:s=${outputSize}:fps=30,eq=contrast=1.04:saturation=0.96,unsharp=5:5:0.3:5:5:0,vignette,format=yuv420p`,
     "-frames:v", String(frames), "-an", "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-movflags", "+faststart", output,
   ], { maxBuffer: 10_000_000 });
 }
 
 async function createEmergencyMotionVideo(output: string, duration: number, sceneIndex: number) {
+  const landscape = process.env.PLANDOME_RENDER_FORMAT === "landscape" || process.env.PLANDOME_RENDER_FORMAT === "hz";
+  const outputSize = landscape ? "1920x1080" : "1080x1920";
   const palettes = [
     ["101827", "d18b45"],
     ["15233a", "7fb7be"],
@@ -527,7 +533,7 @@ async function createEmergencyMotionVideo(output: string, duration: number, scen
   ];
   const [background, accent] = palettes[sceneIndex % palettes.length]!;
   await exec(mediaBinary("ffmpeg"), [
-    "-y", "-f", "lavfi", "-i", `color=c=0x${background}:s=1080x1920:r=30:d=${Math.max(3, duration).toFixed(3)}`,
+    "-y", "-f", "lavfi", "-i", `color=c=0x${background}:s=${outputSize}:r=30:d=${Math.max(3, duration).toFixed(3)}`,
     "-vf", `drawgrid=w=135:h=135:t=2:c=0x${accent}@0.12,noise=alls=7:allf=t+u,vignette=PI/5,eq=contrast=1.04:saturation=0.9,format=yuv420p`,
     "-an", "-c:v", "libx264", "-preset", "medium", "-b:v", "2800k", "-minrate", "1800k", "-maxrate", "3600k", "-bufsize", "5600k", "-movflags", "+faststart", output,
   ], { maxBuffer: 10_000_000 });
@@ -561,7 +567,7 @@ async function createAvatar(hook: string, output: string) {
 }
 
 async function main() {
-  await loadEnv(); process.env.FFMPEG_PATH ??= mediaBinary("ffmpeg"); const id = process.argv[2]; const job = await getVideoJob(id); if (!job) throw new Error("Job not found.");
+  await loadEnv(); process.env.FFMPEG_PATH ??= mediaBinary("ffmpeg"); const id = process.argv[2]; const job = await getVideoJob(id); if (!job) throw new Error("Job not found."); process.env.PLANDOME_RENDER_FORMAT = job.input.format;
   // Older locally persisted jobs predate creative identity fields. Normalise
   // them so verified narration fixtures remain usable for regression renders.
   job.generationId ||= id;
