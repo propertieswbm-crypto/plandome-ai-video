@@ -12,7 +12,7 @@ export function splitScript(script: string): string[] {
   const clean = repairText(script).trim().replace(/^["'“”]+|["'“”]+$/g, "").replace(/\s+/g, " ");
   const sentences = clean.match(/[^.!?]+[.!?]?/g)?.map((part) => part.trim()).filter((part) => /[a-z0-9]/i.test(part)) ?? [];
   const beats = sentences.flatMap((sentence) => {
-    if (sentence.split(/\s+/).length <= 15) return [sentence];
+    if (sentence.split(/\s+/).length <= 8) return [sentence];
     const clauses = sentence.split(/(?<=,|;)\s+|\s+(?=(?:but|while|because|causing|particularly|as a result)\b)/i).map((part) => part.trim()).filter(Boolean);
     if (clauses.length > 1) return clauses;
     const words = sentence.split(/\s+/);
@@ -26,4 +26,35 @@ export function splitScript(script: string): string[] {
     else result.push(beat);
     return result;
   }, []);
+}
+
+export function splitLongFormScript(script: string): string[] {
+  const clean = repairText(script).trim().replace(/^["'“”]+|["'“”]+$/g, "");
+  const paragraphs = clean
+    .split(/\n\s*\n+/)
+    .map((part) => part.replace(/\s+/g, " ").trim())
+    .filter((part) => /[a-z0-9]/i.test(part));
+  const thoughts = (paragraphs.length ? paragraphs : [clean.replace(/\s+/g, " ")])
+    .flatMap((paragraph) => paragraph.match(/[^.!?]+[.!?]?/g)?.map((part) => part.trim()).filter(Boolean) ?? [paragraph]);
+  const sections: string[] = [];
+  let section: string[] = [];
+  let words = 0;
+  const flush = () => {
+    if (!section.length) return;
+    sections.push(section.join(" "));
+    section = [];
+    words = 0;
+  };
+  for (const thought of thoughts) {
+    const thoughtWords = thought.split(/\s+/).length;
+    if (section.length && words >= 20 && words + thoughtWords > 30) flush();
+    section.push(thought);
+    words += thoughtWords;
+    if (words >= 26) flush();
+  }
+  flush();
+  if (sections.length > 1 && sections.at(-1)!.split(/\s+/).length < 14) {
+    sections[sections.length - 2] = `${sections[sections.length - 2]} ${sections.pop()}`;
+  }
+  return sections.filter(Boolean);
 }

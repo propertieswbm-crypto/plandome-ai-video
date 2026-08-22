@@ -269,33 +269,114 @@ function alignedWords(alignment: Alignment) {
   flush();
   return words;
 }
-async function narration(text: string, output: string): Promise<Alignment> {
+function elevenLabsTransportDetail(error: unknown): string {
+  const details: string[] = [];
+  let current: unknown = error;
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    if (current instanceof Error) {
+      const code = (current as Error & { code?: string }).code;
+      details.push(code ? `${code}: ${current.message}` : current.message);
+      current = (current as Error & { cause?: unknown }).cause;
+    } else {
+      details.push(String(current));
+      break;
+    }
+  }
+  return [...new Set(details.filter(Boolean))].join(" -> ") || "unknown transport error";
+}
+
+async function narrationChunk(text: string, output: string): Promise<Alignment> {
   const key = process.env.ELEVENLABS_API_KEY; const voice = process.env.ELEVENLABS_ELLA_VOICE_ID;
   if (!key || !voice) throw new Error("ElevenLabs is not configured.");
   const baseUrl = (process.env.ELEVENLABS_API_BASE_URL ?? "https://api.elevenlabs.io").replace(/\/$/, "");
+  const endpoint = `${baseUrl}/v1/text-to-speech/${encodeURIComponent(voice)}/with-timestamps?output_format=mp3_44100_128`;
+  const maxAttempts = Math.max(1, Number(process.env.ELEVENLABS_MAX_ATTEMPTS ?? "5"));
   let response: Response | undefined;
   let lastError = "";
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      response = await fetch(`${baseUrl}/v1/text-to-speech/${encodeURIComponent(voice)}/with-timestamps`, {
+      response = await fetch(endpoint, {
         method: "POST",
-        headers: { "xi-api-key": key, "content-type": "application/json" },
-        body: JSON.stringify({ text, model_id: "eleven_flash_v2_5", voice_settings: { stability: .55, similarity_boost: .78, style: .25, use_speaker_boost: true, speed: 1 } }),
-        signal: AbortSignal.timeout(25_000),
+        headers: { "xi-api-key": key, "content-type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ text, model_id: "eleven_multilingual_v2", voice_settings: { stability: .62, similarity_boost: .82, style: .18, use_speaker_boost: true, speed: 1.04 } }),
       });
-      if (response.ok || response.status < 500) break;
+      if (response.ok || (response.status < 500 && response.status !== 429)) break;
       lastError = `HTTP ${response.status}`;
     } catch (cause) {
-      lastError = cause instanceof Error ? cause.message : String(cause);
+      lastError = elevenLabsTransportDetail(cause);
     }
-    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 750));
+    if (attempt < maxAttempts) {
+      const retryAfterSeconds = Number(response?.headers.get("retry-after") ?? "0");
+      const backoffMs = retryAfterSeconds > 0
+        ? retryAfterSeconds * 1_000
+        : Math.min(8_000, 750 * (2 ** (attempt - 1)) + Math.floor(Math.random() * 250));
+      await new Promise((resolve) => setTimeout(resolve, backoffMs));
+    }
   }
-  if (!response) throw new Error(`ElevenLabs is unreachable after 3 attempts${lastError ? `: ${lastError}` : ""}.`);
-  if (!response.ok) throw new Error(`ElevenLabs speech generation failed (${response.status}).`);
-  const payload = await response.json() as { audio_base64?: string; alignment?: Alignment };
-  if (!payload.audio_base64 || !payload.alignment) throw new Error("ElevenLabs did not return speech alignment.");
+  if (!response) {
+    const host = new URL(baseUrl).host;
+    throw new Error(`ElevenLabs is unreachable after 3 attempts${lastError ? `: ${lastError}` : ""}. Allow outbound HTTPS to ${host}:443 or configure ELEVENLABS_API_BASE_URL to an approved proxy.`);
+  }
+  if (!response.ok) {
+    const detail = (await response.text()).replace(/\s+/g, " ").trim().slice(0, 500);
+    throw new Error(`ElevenLabs speech generation failed (${response.status})${detail ? `: ${detail}` : "."}`);
+  }
+  const payload = await response.json() as { audio_base64?: string; alignment?: Alignment; normalized_alignment?: Alignment };
+  const alignment = payload.alignment ?? payload.normalized_alignment;
+  if (!payload.audio_base64 || !alignment) throw new Error("ElevenLabs did not return speech alignment.");
   await writeFile(output, Buffer.from(payload.audio_base64, "base64"));
-  return payload.alignment;
+  return alignment;
+}
+
+function splitNarrationForElevenLabs(text: string, maxCharacters = 3_500) {
+  const sentences = text.trim().split(/(?<=[.!?])\s+|\n{2,}/).map((value) => value.trim()).filter(Boolean);
+  const units: string[] = [];
+  for (const sentence of sentences) {
+    if (sentence.length <= maxCharacters) { units.push(sentence); continue; }
+    const words = sentence.split(/\s+/); let part = "";
+    for (const word of words) {
+      const candidate = part ? `${part} ${word}` : word;
+      if (candidate.length > maxCharacters && part) { units.push(part); part = word; }
+      else part = candidate;
+    }
+    if (part) units.push(part);
+  }
+  const chunks: string[] = []; let current = "";
+  for (const unit of units) {
+    const candidate = current ? `${current} ${unit}` : unit;
+    if (candidate.length > maxCharacters && current) { chunks.push(current); current = unit; }
+    else current = candidate;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+async function narration(text: string, output: string): Promise<Alignment> {
+  const chunks = splitNarrationForElevenLabs(text);
+  if (chunks.length <= 1) return narrationChunk(text, output);
+
+  const outputDirectory = path.dirname(output);
+  const outputStem = path.basename(output, path.extname(output));
+  const parts: string[] = [];
+  const combined: Alignment = { characters: [], character_start_times_seconds: [], character_end_times_seconds: [] };
+  let offset = 0;
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    const part = path.join(outputDirectory, `${outputStem}-part-${String(index + 1).padStart(3, "0")}.mp3`);
+    const alignment = await narrationChunk(chunks[index]!, part);
+    const duration = await audioDuration(part);
+    parts.push(part);
+    combined.characters.push(...alignment.characters);
+    combined.character_start_times_seconds.push(...alignment.character_start_times_seconds.map((time) => time + offset));
+    combined.character_end_times_seconds.push(...alignment.character_end_times_seconds.map((time) => time + offset));
+    offset += duration;
+  }
+
+  const manifest = path.join(outputDirectory, `${outputStem}-parts.txt`);
+  await writeFile(manifest, parts.map((part) => `file '${part.replace(/'/g, "'\\''")}'`).join("\n"));
+  await exec(mediaBinary("ffmpeg"), ["-y", "-f", "concat", "-safe", "0", "-i", manifest, "-c", "copy", output]);
+  await Promise.all([...parts, manifest].map((file) => rm(file, { force: true })));
+  return combined;
 }
 
 async function fallbackNarration(text: string, output: string, dir: string) {
