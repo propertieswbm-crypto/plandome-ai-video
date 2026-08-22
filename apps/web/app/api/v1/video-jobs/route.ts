@@ -7,7 +7,6 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createVideoJob, saveVideoJob } from "@/lib/video/job-store";
 import { enqueueRemoteVideoJob } from "@/lib/video/remote-store";
 import { createVariationIdentity } from "@/lib/video/creative-system";
-import { approvedDesignBenchmarks } from "@/lib/video/approved-benchmarks";
 
 export const runtime = "nodejs";
 
@@ -31,9 +30,6 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return problem(requestId, 422, "validation_failed", "Paste a script between 20 and 30,000 characters.");
   if (parsed.data.workflow !== "long-form" && parsed.data.script.length > 3_000) {
     return problem(requestId, 422, "validation_failed", "Short ads support up to 3,000 characters. Select Long Form for larger scripts.");
-  }
-  if (approvedDesignBenchmarks.length === 0) {
-    return problem(requestId, 503, "design_styles_unavailable", "No design styles are currently active. Add and approve a new design style before generating a video.");
   }
   const input = parsed.data.workflow === "long-form"
     ? { ...parsed.data, format: "landscape" as const, quality: "production" as const, useAvatar: false, canvaBridgeMode: "longform-native" as const }
