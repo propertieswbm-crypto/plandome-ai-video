@@ -30,7 +30,10 @@ export const createNarrationSchema = z.object({
 export type CreateNarrationInput = z.infer<typeof createNarrationSchema>;
 
 export const createVideoJobSchema = z.object({
-  script: z.string().trim().min(20).max(3_000),
+  script: z.string().trim().min(20).max(30_000),
+  workflow: z.enum(["short-form", "long-form"]).default("short-form"),
+  targetDurationSeconds: z.number().int().min(60).max(1_200).optional(),
+  canvaBridgeMode: z.enum(["standard", "longform-native"]).default("standard"),
   format: z.enum(["portrait", "landscape", "hz", "sqr"]).default("portrait"),
   quality: z.enum(["preview", "production"]).default("preview"),
   useAvatar: z.boolean().default(true),
@@ -38,7 +41,18 @@ export const createVideoJobSchema = z.object({
     z.union([z.url({ protocol: /^https?$/ }), z.literal("")])
   ).max(30).default([]),
   driveFolderUrl: z.union([
-    z.url({ protocol: /^https$/ }).refine((value) => /(^|\.)drive\.google\.com$/i.test(new URL(value).hostname), "Use a Google Drive link."),
+    z.url({ protocol: /^https$/ }).refine((value) => {
+      try {
+        const url = new URL(value);
+        return /(^|\.)drive\.google\.com$/i.test(url.hostname) && (/\/folders\/[a-zA-Z0-9_-]+/.test(url.pathname) || Boolean(url.searchParams.get("id")));
+      } catch {
+        return false;
+      }
+    }, "Use a Google Drive folder link, not an individual file link."),
+    z.literal(""),
+  ]).default(""),
+  slideDeckUrl: z.union([
+    z.url({ protocol: /^https$/ }).refine((value) => /(?:docs\.google\.com\/presentation\/d\/|drive\.google\.com\/(?:file\/d\/|open\?id=))/i.test(value), "Use a shared Google Slides, PowerPoint, or PDF Drive file link."),
     z.literal(""),
   ]).default(""),
   renderer: z.enum(["hyperframes","remotion"]).default("hyperframes"),
@@ -72,7 +86,7 @@ export const createOmniSchema = z.object({
 });
 export type CreateOmniInput = z.infer<typeof createOmniSchema>;
 
-export const videoJobStatusSchema = z.enum(["queued", "planning", "narrating", "avatar", "composing", "rendering", "completed", "failed"]);
+export const videoJobStatusSchema = z.enum(["queued", "planning", "narrating", "avatar", "composing", "rendering", "completed", "failed", "cancelled"]);
 export type VideoJobStatus = z.infer<typeof videoJobStatusSchema>;
 
 export type ProblemDetails = {

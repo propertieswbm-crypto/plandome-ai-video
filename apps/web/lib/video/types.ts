@@ -19,5 +19,24 @@ export type VideoJob = {
   creativeProjectVersion?: number;
   canvaDesignId?: string;
   canvaEditUrl?: string;
+  attempt?: number;
+  maxAttempts?: number;
+  recoveryMode?: "standard" | "safe-assets";
+  cancelTokenHash?: string;
+  cancelledAt?: string;
+  qualityScore?: number;
+  qualityStatus?: "passed";
+  qualityWarnings?: number;
+  longFormPlan?: Array<{
+    scene: number;
+    narration: string;
+    durationSeconds: number;
+    visualSource: "slide" | "drive-footage" | "premium-fallback" | "pending";
+    slide?: number;
+    semanticScore?: number;
+    captionLane: "upper" | "lower";
+    status: "planned" | "prepared" | "rendered";
+  }>;
+  chapterProgress?: { completed: number; total: number; current?: number };
   error?: { code: string; message: string };
 };
